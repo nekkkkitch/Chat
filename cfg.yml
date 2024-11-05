@@ -6,5 +6,9 @@ db:
   user: "postgres"
   password: "123"
   dbname: "chatdb"
-as:
-  auth_port: "50050"
+aus:
+  auth_port: 50050
+  auth_host: "localhost"
+rtr:
+  router_port: ":8080"
+  router_host: "localhost"

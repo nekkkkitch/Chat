@@ -7,11 +7,7 @@ option go_package = "./";
 service Authentification{
     rpc Register(User) returns (AuthData){};
     rpc Login(User) returns (AuthData){};
-    rpc UpdateTokens(RefreshToken) returns (AuthData){};
-}
-
-message RefreshToken{
-    string refresh_token = 1;
+    rpc UpdateTokens(AuthData) returns (AuthData){};
 }
 
 message User{

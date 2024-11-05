@@ -6,10 +6,12 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -29,6 +31,13 @@ type Config struct {
 const (
 	InvalidToken = "invalid token"
 	ExpiredToken = "expired token"
+)
+
+var (
+	protectedFromAuthTokenURLs    = []*regexp.Regexp{}
+	needToProvideRefreshTokenURLs = []*regexp.Regexp{
+		regexp.MustCompile("^/refresh$"),
+	}
 )
 
 func New(cfg *Config) (JWT, error) {
@@ -71,7 +80,7 @@ func (j *JWT) CreateTokens(user_id int) (string, string, error) {
 	return accessToken, refreshToken, nil
 }
 
-func (j *JWT) ValidateToken(token string) (bool, error) {
+func (j *JWT) ValidateToken(c *fiber.Ctx, token string) (bool, error) {
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
 		return j.PublicKey, nil
@@ -89,20 +98,48 @@ func (j *JWT) ValidateToken(token string) (bool, error) {
 	return true, nil
 }
 
+func (j *JWT) AuthFilter(c *fiber.Ctx) bool {
+	originalURL := strings.ToLower(c.OriginalURL())
+	for _, pattern := range protectedFromAuthTokenURLs {
+		if pattern.MatchString(originalURL) {
+			return false
+		}
+	}
+	return true
+}
+
+func (j *JWT) RefreshFilter(c *fiber.Ctx) bool {
+	originalURL := strings.ToLower(c.OriginalURL())
+	for _, pattern := range needToProvideRefreshTokenURLs {
+		if pattern.MatchString(originalURL) {
+			return false
+		}
+	}
+	return true
+}
+
 func (j *JWT) GetIDFromToken(token string) (int, error) {
-	var id int
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
 		return j.PublicKey, nil
 	})
+	id := getIdFromClaims(claims)
 	if err != nil {
+		if err.Error() != jwt.ErrHashUnavailable.Error() {
+			return id, err
+		}
 		return 0, err
 	}
-	id, err = strconv.Atoi(claims["sub"].(string))
-	if err != nil {
-		panic(err)
-	}
 	return id, nil
+}
+
+func getIdFromClaims(claims jwt.MapClaims) int {
+	idString := claims["sub"].(string)
+	user_id, err := strconv.Atoi(idString)
+	if err != nil {
+		panic(fmt.Sprintf("%v, idString is %v", err, idString))
+	}
+	return user_id
 }
 
 func convertStringToBytesSlice(line string) []byte {

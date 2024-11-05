@@ -30,7 +30,7 @@ const (
 type AuthentificationClient interface {
 	Register(ctx context.Context, in *User, opts ...grpc.CallOption) (*AuthData, error)
 	Login(ctx context.Context, in *User, opts ...grpc.CallOption) (*AuthData, error)
-	UpdateTokens(ctx context.Context, in *RefreshToken, opts ...grpc.CallOption) (*AuthData, error)
+	UpdateTokens(ctx context.Context, in *AuthData, opts ...grpc.CallOption) (*AuthData, error)
 }
 
 type authentificationClient struct {
@@ -61,7 +61,7 @@ func (c *authentificationClient) Login(ctx context.Context, in *User, opts ...gr
 	return out, nil
 }
 
-func (c *authentificationClient) UpdateTokens(ctx context.Context, in *RefreshToken, opts ...grpc.CallOption) (*AuthData, error) {
+func (c *authentificationClient) UpdateTokens(ctx context.Context, in *AuthData, opts ...grpc.CallOption) (*AuthData, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AuthData)
 	err := c.cc.Invoke(ctx, Authentification_UpdateTokens_FullMethodName, in, out, cOpts...)
@@ -77,7 +77,7 @@ func (c *authentificationClient) UpdateTokens(ctx context.Context, in *RefreshTo
 type AuthentificationServer interface {
 	Register(context.Context, *User) (*AuthData, error)
 	Login(context.Context, *User) (*AuthData, error)
-	UpdateTokens(context.Context, *RefreshToken) (*AuthData, error)
+	UpdateTokens(context.Context, *AuthData) (*AuthData, error)
 	mustEmbedUnimplementedAuthentificationServer()
 }
 
@@ -94,7 +94,7 @@ func (UnimplementedAuthentificationServer) Register(context.Context, *User) (*Au
 func (UnimplementedAuthentificationServer) Login(context.Context, *User) (*AuthData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
 }
-func (UnimplementedAuthentificationServer) UpdateTokens(context.Context, *RefreshToken) (*AuthData, error) {
+func (UnimplementedAuthentificationServer) UpdateTokens(context.Context, *AuthData) (*AuthData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateTokens not implemented")
 }
 func (UnimplementedAuthentificationServer) mustEmbedUnimplementedAuthentificationServer() {}
@@ -155,7 +155,7 @@ func _Authentification_Login_Handler(srv interface{}, ctx context.Context, dec f
 }
 
 func _Authentification_UpdateTokens_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RefreshToken)
+	in := new(AuthData)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func _Authentification_UpdateTokens_Handler(srv interface{}, ctx context.Context
 		FullMethod: Authentification_UpdateTokens_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthentificationServer).UpdateTokens(ctx, req.(*RefreshToken))
+		return srv.(AuthentificationServer).UpdateTokens(ctx, req.(*AuthData))
 	}
 	return interceptor(ctx, in, info, handler)
 }

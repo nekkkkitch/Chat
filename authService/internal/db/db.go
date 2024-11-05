@@ -47,13 +47,22 @@ func (d *DB) AddUser(user models.User) (int, error) {
 	return id, nil
 }
 
-func (d *DB) GetUser(id int) (models.User, error) {
+func (d *DB) GetUserByID(id int) (models.User, error) {
 	user := models.User{ID: id}
 	err := d.db.QueryRow(context.Background(), `select login, password from users where id=$1`, id).Scan(&user.Login, &user.Password)
 	if err != nil {
 		return models.User{}, err
 	}
 	return user, nil
+}
+
+func (d *DB) GetUserByLogin(login string) (models.User, error) {
+	user := models.User{Login: login}
+	err := d.db.QueryRow(context.Background(), `select id, password from users where login=$1`, login).Scan(&user.ID, user.Password)
+	if err != nil {
+		return models.User{}, err
+	}
+	return user, err
 }
 
 func (d *DB) CheckSameLogin(login string) (bool, error) {

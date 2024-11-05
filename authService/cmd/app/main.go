@@ -2,7 +2,7 @@ package main
 
 import (
 	pg "Chat/authService/internal/db"
-	server "Chat/pkg/authServer"
+	server "Chat/authService/internal/server"
 	"Chat/pkg/jwt"
 	"log"
 
@@ -12,7 +12,7 @@ import (
 type Config struct {
 	JWTConfig        *jwt.Config    `yaml:"jwt" env-prefix:"JWT_"`
 	DBConfig         *pg.Config     `yaml:"db" env-prefix:"DB_"`
-	AuthServerConfig *server.Config `yaml:"as" env-prefix:"AS_"`
+	AuthServerConfig *server.Config `yaml:"aus" env-prefix:"AS_"`
 }
 
 func readConfig(filename string) (*Config, error) {

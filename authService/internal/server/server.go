@@ -6,10 +6,11 @@ import (
 	"log"
 	"net"
 
-	pb "Chat/authService/pb"
 	"Chat/pkg/crypt"
+	pb "Chat/pkg/grpc/pb"
 	"Chat/pkg/models"
 
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -21,14 +22,14 @@ type Config struct {
 
 type IJWTManager interface {
 	CreateTokens(user_id int) (string, string, error)
-	ValidateToken(token string) (bool, error)
-	GetIDFromToken(token string)(int, error)
+	GetIDFromToken(token string) (int, error)
 }
 
 type IDBManager interface {
 	CheckSameLogin(login string) (bool, error)
 	AddUser(user models.User) (int, error)
-	GetUser(id int) (models.User, error)
+	GetUserByID(id int) (models.User, error)
+	GetUserByLogin(login string) (models.User, error)
 }
 
 type server struct {
@@ -92,20 +93,31 @@ func (s *server) Login(_ context.Context, in *pb.User) (*pb.AuthData, error) {
 		}
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
+	user, err := s.db.GetUserByLogin(in.Login)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "%v", err)
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	id, err := s.db.AddUser(models.User{Login: in.Login, Password: string(cryptedPassword)})
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "%v", err)
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(in.Password)); err != nil {
+		if err.Error() == bcrypt.ErrMismatchedHashAndPassword.Error() {
+			return nil, status.Errorf(codes.InvalidArgument, "wrong password")
+		}
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	access, refresh, err := s.jwt.CreateTokens(id)
+	access, refresh, err := s.jwt.CreateTokens(user.ID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	return &pb.AuthData{AccessToken: access, RefreshToken: refresh}, nil
 }
 
-func (s *server) UpdateTokens(_ context.Context, in *pb.RefreshToken)(*pb.AuthData, error){
-
+func (s *server) UpdateTokens(_ context.Context, in *pb.AuthData) (*pb.AuthData, error) {
+	user_id, err := s.jwt.GetIDFromToken(in.AccessToken)
+	if user_id == 0 {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	access, refresh, err := s.jwt.CreateTokens(user_id)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
+	return &pb.AuthData{AccessToken: access, RefreshToken: refresh}, nil
 }
