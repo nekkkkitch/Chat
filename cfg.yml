@@ -3,7 +3,7 @@ jwt:
 db:
   host: "localhost"
   port: 5432
-  user: "postgres"
+  user: "user"
   password: "123"
   dbname: "chatdb"
 aus:

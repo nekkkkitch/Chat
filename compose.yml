@@ -6,11 +6,23 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: "123"
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - ./.database/postgres/data:/var/lib/postgresql/data
       - ./db_init:/docker-entrypoint-initdb.d
-    networks:
-      - net
-  as:
-    
+  aus:
+    build:
+      dockerfile: services/authservice/Dockerfile
+      context: .
+    ports:
+      - "8081:8081"
+    depends_on:
+      - db
+  gateway:
+    build:
+      dockerfile: services/gateway/Dockerfile
+      context: .
+    ports:
+      - "8082:8082"
+    depends_on:
+      - aus

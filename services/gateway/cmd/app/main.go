@@ -1,9 +1,9 @@
 package main
 
 import (
-	rtr "Chat/gateway/internal/router"
-	aus "Chat/gateway/internal/services/authService"
 	"Chat/pkg/jwt"
+	rtr "Chat/services/gateway/internal/router"
+	aus "Chat/services/gateway/internal/services/authService"
 	"log"
 
 	"github.com/ilyakaznacheev/cleanenv"

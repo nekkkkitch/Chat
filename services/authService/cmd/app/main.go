@@ -1,9 +1,9 @@
 package main
 
 import (
-	pg "Chat/authService/internal/db"
-	server "Chat/authService/internal/server"
 	"Chat/pkg/jwt"
+	pg "Chat/services/authService/internal/db"
+	server "Chat/services/authService/internal/server"
 	"log"
 
 	"github.com/ilyakaznacheev/cleanenv"

@@ -3,6 +3,7 @@ package router
 import (
 	"Chat/pkg/models"
 	"encoding/json"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/keyauth"
@@ -64,10 +65,12 @@ func Login(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("User to login: %s\n", user.Login)
 	authData, err := asvc.Login(user)
 	if err != nil {
 		return err
 	}
+	log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
 	return c.JSON(authData)
 }
 
@@ -77,10 +80,12 @@ func Register(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("User to register: %s\n", user.Login)
 	authData, err := asvc.Register(user)
 	if err != nil {
 		return err
 	}
+	log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
 	return c.JSON(authData)
 }
 
@@ -89,9 +94,11 @@ func UpdateTokens(c *fiber.Ctx) error {
 	if err := c.CookieParser(&authData); err != nil {
 		return err
 	}
+	log.Printf("Got tokens:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
 	authDataResp, err := asvc.UpdateTokens(authData)
 	if err != nil {
 		return err
 	}
-	return c.JSON(authDataResp)
+	log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authDataResp.AccessToken[:20], authDataResp.RefreshToken[:20])
+	return c.JSON(authDataResp) //переписать возвращение токенов в c.Cookie
 }
