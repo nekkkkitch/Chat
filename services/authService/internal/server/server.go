@@ -48,7 +48,7 @@ type Service struct {
 
 func NewService(cfg *Config, jwt IJWTManager, db IDBManager) (*Service, error) {
 	log.Println(cfg.Port)
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.Port))
+	lis, err := net.Listen("tcp", fmt.Sprintf("%s", cfg.Port))
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +59,7 @@ func NewService(cfg *Config, jwt IJWTManager, db IDBManager) (*Service, error) {
 }
 
 func (s *server) Register(_ context.Context, in *pb.User) (*pb.AuthData, error) {
+	log.Println("User to register: " + in.Login)
 	if in.Login == "" || in.Password == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "request missing login or password")
 	}
@@ -84,6 +85,7 @@ func (s *server) Register(_ context.Context, in *pb.User) (*pb.AuthData, error) 
 }
 
 func (s *server) Login(_ context.Context, in *pb.User) (*pb.AuthData, error) {
+	log.Println("User to login: " + in.Login)
 	if in.Login == "" || in.Password == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "request missing login or password")
 	}

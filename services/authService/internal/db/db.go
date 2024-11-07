@@ -44,6 +44,7 @@ func (d *DB) AddUser(user models.User) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	log.Printf("User %v %v\n added successfully", user.ID, user.Login)
 	return id, nil
 }
 
@@ -53,6 +54,7 @@ func (d *DB) GetUserByID(id int) (models.User, error) {
 	if err != nil {
 		return models.User{}, err
 	}
+	log.Printf("Returning user %v %v\n", user.ID, user.Password)
 	return user, nil
 }
 
@@ -62,7 +64,8 @@ func (d *DB) GetUserByLogin(login string) (models.User, error) {
 	if err != nil {
 		return models.User{}, err
 	}
-	return user, err
+	log.Printf("Returning user %v %v\n", user.ID, user.Password)
+	return user, nil
 }
 
 func (d *DB) CheckSameLogin(login string) (bool, error) {

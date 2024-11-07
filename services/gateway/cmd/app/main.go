@@ -40,6 +40,6 @@ func main() {
 	}
 	log.Println("Auth service connected successfully")
 	router := rtr.New(cfg.RTRConfig, authService, &jwt)
+	log.Printf("Router is listening on %v:%v\n", router.Config.Host, router.Config.Port)
 	router.Listen()
-	log.Println("Router started successfully")
 }

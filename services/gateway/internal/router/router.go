@@ -10,9 +10,9 @@ import (
 )
 
 type Router struct {
-	app *fiber.App
-	cfg *Config
-	jwt IJWTManager
+	App    *fiber.App
+	Config *Config
+	jwt    IJWTManager
 }
 
 type Config struct {
@@ -51,12 +51,18 @@ func New(cfg *Config, auservice IAuthService, jwt IJWTManager) *Router {
 	app.Post("/login", Login)
 	app.Post("/register", Register)
 	app.Post("/refresh", UpdateTokens)
+	app.Get("/", Ping)
 	asvc = auservice
-	return &Router{app: app, cfg: cfg, jwt: jwt}
+	return &Router{App: app, Config: cfg, jwt: jwt}
 }
 
 func (r *Router) Listen() {
-	r.app.Listen(r.cfg.Host + r.cfg.Port)
+	r.App.Listen(r.Config.Host + r.Config.Port)
+}
+
+func Ping(c *fiber.Ctx) error {
+	log.Println("Ping")
+	return c.JSON("aboba")
 }
 
 func Login(c *fiber.Ctx) error {
