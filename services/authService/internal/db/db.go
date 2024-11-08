@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Config struct {
@@ -39,18 +40,22 @@ func (d *DB) Close() error {
 }
 
 func (d *DB) AddUser(user models.User) (int, error) {
-	var id int
-	err := d.db.QueryRow(context.Background(), `insert into users(login, password) values($1, $2)`, user.Login, user.Password).Scan(&id)
+	log.Println("Trying to insert user " + user.Login)
+	err := d.db.QueryRow(context.Background(), `insert into public.users(login, password) values($1, $2) returning id`, user.Login, user.Password).Scan(&user.ID)
 	if err != nil {
 		return 0, err
 	}
 	log.Printf("User %v %v\n added successfully", user.ID, user.Login)
-	return id, nil
+	return user.ID, nil
 }
 
 func (d *DB) GetUserByID(id int) (models.User, error) {
 	user := models.User{ID: id}
-	err := d.db.QueryRow(context.Background(), `select login, password from users where id=$1`, id).Scan(&user.Login, &user.Password)
+	var login pgtype.Text
+	var password pgtype.Text
+	err := d.db.QueryRow(context.Background(), `select login, password from public.users where id=$1`, id).Scan(&login, &password)
+	user.Login = login.String
+	user.Password = password.String
 	if err != nil {
 		return models.User{}, err
 	}
@@ -60,7 +65,11 @@ func (d *DB) GetUserByID(id int) (models.User, error) {
 
 func (d *DB) GetUserByLogin(login string) (models.User, error) {
 	user := models.User{Login: login}
-	err := d.db.QueryRow(context.Background(), `select id, password from users where login=$1`, login).Scan(&user.ID, user.Password)
+	var pglogin pgtype.Text
+	var password pgtype.Text
+	err := d.db.QueryRow(context.Background(), `select id, password from public.users where login=$1`, login).Scan(&pglogin, &password)
+	user.Login = pglogin.String
+	user.Password = password.String
 	if err != nil {
 		return models.User{}, err
 	}
@@ -70,9 +79,12 @@ func (d *DB) GetUserByLogin(login string) (models.User, error) {
 
 func (d *DB) CheckSameLogin(login string) (bool, error) {
 	var id int
-	err := d.db.QueryRow(context.Background(), `select id from users where login=$1`, login).Scan(&id)
+	err := d.db.QueryRow(context.Background(), `select id from public.users where login=$1`, login).Scan(&id)
 	if err != nil {
+		if err.Error() == pgx.ErrNoRows.Error() {
+			return false, nil
+		}
 		return false, err
 	}
-	return id > 0, nil
+	return true, nil
 }

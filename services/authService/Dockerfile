@@ -1,10 +1,10 @@
 FROM nekkkkitch/docker AS builder
 WORKDIR /app
 COPY . .
-RUN GOOS=linux go build -a -o authService ./services/authService/cmd/app/main.go
+RUN GOOS=linux go build -a -o aus ./services/authService/cmd/app/main.go
 
 FROM alpine:latest
 WORKDIR /app
-COPY --from=builder /app/authService .
+COPY --from=builder /app/aus .
 COPY ./cfg.yml .
-CMD ["./authService"]
+CMD ["./aus"]

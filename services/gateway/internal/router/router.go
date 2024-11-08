@@ -74,10 +74,17 @@ func Login(c *fiber.Ctx) error {
 	log.Printf("User to login: %s\n", user.Login)
 	authData, err := asvc.Login(user)
 	if err != nil {
+		switch err.Error() {
+		case "rpc error: code = AlreadyExists desc = login occupied":
+			c.Status(fiber.StatusBadRequest)
+			return nil
+		}
 		return err
 	}
 	log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
-	return c.JSON(authData)
+	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "access_token="+authData.AccessToken)
+	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "refresh_token="+authData.RefreshToken)
+	return nil
 }
 
 func Register(c *fiber.Ctx) error {
@@ -92,7 +99,9 @@ func Register(c *fiber.Ctx) error {
 		return err
 	}
 	log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
-	return c.JSON(authData)
+	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "access_token="+authData.AccessToken)
+	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "refresh_token="+authData.RefreshToken)
+	return nil
 }
 
 func UpdateTokens(c *fiber.Ctx) error {
@@ -105,6 +114,9 @@ func UpdateTokens(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authDataResp.AccessToken[:20], authDataResp.RefreshToken[:20])
-	return c.JSON(authDataResp) //переписать возвращение токенов в c.Cookie
+	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "access_token="+authDataResp.AccessToken)
+	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "refresh_token="+authDataResp.RefreshToken)
+	return nil
 }

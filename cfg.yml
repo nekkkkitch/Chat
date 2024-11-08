@@ -7,8 +7,8 @@ db:
   password: "123"
   dbname: "chatdb"
 aus:
-  auth_port: ":50050"
-  auth_host: "localhost"
+  auth_port: ":50051"
+  auth_host: "aus"
 rtr:
   router_port: ":8082"
   router_host: ""

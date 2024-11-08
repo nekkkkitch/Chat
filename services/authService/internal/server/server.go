@@ -67,6 +67,7 @@ func (s *server) Register(_ context.Context, in *pb.User) (*pb.AuthData, error) 
 		if same {
 			return nil, status.Errorf(codes.AlreadyExists, "login occupied")
 		}
+		log.Println("Something went wrong when checked for the same login: " + err.Error())
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	cryptedPassword, err := crypt.CryptPassword(in.Password)
@@ -75,6 +76,7 @@ func (s *server) Register(_ context.Context, in *pb.User) (*pb.AuthData, error) 
 	}
 	id, err := s.db.AddUser(models.User{Login: in.Login, Password: string(cryptedPassword)})
 	if err != nil {
+		log.Println("Something went wrong when added user: " + err.Error())
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	access, refresh, err := s.jwt.CreateTokens(id)
@@ -91,7 +93,7 @@ func (s *server) Login(_ context.Context, in *pb.User) (*pb.AuthData, error) {
 	}
 	if same, err := s.db.CheckSameLogin(in.Login); err != nil || !same {
 		if !same {
-			return nil, status.Errorf(codes.AlreadyExists, "login does not exist")
+			return nil, status.Errorf(codes.InvalidArgument, "login does not exist")
 		}
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}

@@ -9,13 +9,13 @@ services:
       - "5434:5432"
     volumes:
       - ./.database/postgres/data:/var/lib/postgresql/data
-      - ./db_init:/docker-entrypoint-initdb.d
+      - ./db_init/init.sql:/docker-entrypoint-initdb.d/init.sql
   aus:
     build:
       dockerfile: services/authservice/Dockerfile
       context: .
     ports:
-      - "8081:8081"
+      - "50051:50051"
     depends_on:
       - db
   gateway:
