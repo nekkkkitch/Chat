@@ -5,6 +5,7 @@ package AuthService;
 option go_package = "./";
 
 service Authentification{
+    rpc GetPrivateKey(KeyRequest) returns (PrivateKey){};
     rpc Register(User) returns (AuthData){};
     rpc Login(User) returns (AuthData){};
     rpc UpdateTokens(AuthData) returns (AuthData){};
@@ -13,6 +14,12 @@ service Authentification{
 message User{
     string login = 1;
     string password = 2;
+}
+
+message KeyRequest{}
+
+message PrivateKey{
+    bytes key = 1;
 }
 
 message AuthData{

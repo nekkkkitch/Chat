@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,16 +17,16 @@ import (
 )
 
 type JWT struct {
-	PrivateKey             *rsa.PrivateKey `yaml:"private_key" env-prefix:"PRIVATEKEY" env-default:""`
-	PublicKey              *rsa.PublicKey  `yaml:"public_key" env-prefix:"PUBLICKEY" env-default:""`
-	AccessTokenExpiration  time.Duration   `yaml:"access_token_expiration" env-prefix:"ACCESSTOKENEXPIRATION" env-default:"3600"`
-	RefreshTokenExpiration time.Duration   `yaml:"private_key" env-prefix:"PRIVATEKEY" env-default:"36000"`
+	PrivateKey             *rsa.PrivateKey
+	PublicKey              *rsa.PublicKey
+	AccessTokenExpiration  time.Duration
+	RefreshTokenExpiration time.Duration
 }
 
 type Config struct {
-	Key                    string
-	AccessTokenExpiration  time.Duration
-	RefreshTokenExpiration time.Duration
+	Key                    string `yaml:"private_key" env-prefix:"PRIVATEKEY" env-default:""`
+	AccessTokenExpiration  int    `yaml:"access_token_expiration" env-prefix:"ACCESSTOKENEXPIRATION" env-default:"3600"`
+	RefreshTokenExpiration int    `yaml:"refresh_token_expiration" env-prefix:"PRIVATEKEY" env-default:"36000"`
 }
 
 const (
@@ -44,8 +45,8 @@ func New(cfg *Config) (JWT, error) {
 	jwt := JWT{}
 	var err error
 	privateKeyString := cfg.Key
-	jwt.AccessTokenExpiration = cfg.AccessTokenExpiration * time.Second
-	jwt.RefreshTokenExpiration = cfg.RefreshTokenExpiration * time.Second
+	jwt.AccessTokenExpiration = time.Second * time.Duration(cfg.AccessTokenExpiration)
+	jwt.RefreshTokenExpiration = time.Second * time.Duration(cfg.RefreshTokenExpiration)
 	if privateKeyString == "" {
 		jwt.PrivateKey, err = rsa.GenerateKey(rand.Reader, 2048)
 		if err != nil {
@@ -60,6 +61,11 @@ func New(cfg *Config) (JWT, error) {
 	if err != nil {
 		return JWT{}, err
 	}
+	return jwt, nil
+}
+func NewWithKey(cfg *Config, key *rsa.PrivateKey) (JWT, error) {
+	jwt := JWT{PrivateKey: key, PublicKey: &key.PublicKey,
+		AccessTokenExpiration: time.Second * time.Duration(cfg.AccessTokenExpiration), RefreshTokenExpiration: time.Second * time.Duration(cfg.RefreshTokenExpiration)}
 	return jwt, nil
 }
 
@@ -124,25 +130,26 @@ func (j *JWT) GetIDFromToken(token string) (int, error) {
 		return j.PublicKey, nil
 	})
 	id := getIdFromClaims(claims)
+	log.Printf("Got id: %v\n", id)
 	if err != nil {
-		if err.Error() != jwt.ErrHashUnavailable.Error() {
-			return id, err
-		}
 		return 0, err
 	}
 	return id, nil
+}
+
+func (j *JWT) GetPrivateKey() *rsa.PrivateKey {
+	return j.PrivateKey
 }
 
 func (j *JWT) GetPublicKey() *rsa.PublicKey {
 	return j.PublicKey
 }
 
-
 func getIdFromClaims(claims jwt.MapClaims) int {
 	idString := claims["sub"].(string)
 	user_id, err := strconv.Atoi(idString)
 	if err != nil {
-		panic(fmt.Sprintf("%v, idString is %v", err, idString))
+		log.Fatalln(fmt.Sprintf("%v, idString is %v", err, idString))
 	}
 	return user_id
 }

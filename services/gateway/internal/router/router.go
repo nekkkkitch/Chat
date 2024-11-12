@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/keyauth"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Router struct {
@@ -38,14 +39,6 @@ type IJWTManager interface {
 func New(cfg *Config, auservice IAuthService, jwt IJWTManager) *Router {
 	app := fiber.New()
 	router := &Router{App: app, Config: cfg, jwt: jwt, asvc: auservice}
-	/*
-		app.Use(jwtware.New(jwtware.Config{
-			SigningKey: jwtware.SigningKey{
-				JWTAlg: jwtware.RS256,
-				Key:    jwt.GetPublicKey(),
-			},
-		}))
-	*/
 	app.Use(keyauth.New(keyauth.Config{
 		Next:         router.jwt.AuthFilter,
 		KeyLookup:    "header:X-Access-Token",
@@ -120,10 +113,7 @@ func (r *Router) Register() fiber.Handler {
 
 func (r *Router) UpdateTokens() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		authData := models.AuthData{}
-		if err := c.CookieParser(&authData); err != nil {
-			return err
-		}
+		authData := models.AuthData{AccessToken: c.GetReqHeaders()["X-Access-Token"][0], RefreshToken: c.GetReqHeaders()["X-Refresh-Token"][0]}
 		log.Printf("Got tokens:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
 		authDataResp, err := r.asvc.UpdateTokens(authData)
 		if err != nil {
@@ -139,6 +129,18 @@ func (r *Router) UpdateTokens() fiber.Handler {
 
 func (r *Router) ErrorHandler() func(c *fiber.Ctx, err error) error {
 	return func(c *fiber.Ctx, err error) error {
+		token := c.GetReqHeaders()["X-Access-Token"][0]
+		claims := jwt.MapClaims{}
+		_, err = jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
+			return r.jwt.GetPublicKey(), nil
+		})
+		log.Println(err)
+		token = c.GetReqHeaders()["X-Refresh-Token"][0]
+		claims = jwt.MapClaims{}
+		_, err = jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
+			return r.jwt.GetPublicKey(), nil
+		})
+		log.Println(err)
 		return err
 	}
 }

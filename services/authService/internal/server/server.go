@@ -2,12 +2,14 @@ package authserver
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
 	"fmt"
 	"log"
 	"net"
 
 	"Chat/pkg/crypt"
-	pb "Chat/pkg/grpc/pb"
+	pb "Chat/pkg/grpc/pb/authService"
 	"Chat/pkg/models"
 
 	"golang.org/x/crypto/bcrypt"
@@ -21,6 +23,7 @@ type Config struct {
 }
 
 type IJWTManager interface {
+	GetPrivateKey() *rsa.PrivateKey
 	CreateTokens(user_id int) (string, string, error)
 	GetIDFromToken(token string) (int, error)
 }
@@ -116,7 +119,7 @@ func (s *server) Login(_ context.Context, in *pb.User) (*pb.AuthData, error) {
 
 func (s *server) UpdateTokens(_ context.Context, in *pb.AuthData) (*pb.AuthData, error) {
 	user_id, err := s.jwt.GetIDFromToken(in.AccessToken)
-	if user_id == 0 {
+	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	access, refresh, err := s.jwt.CreateTokens(user_id)
@@ -124,4 +127,8 @@ func (s *server) UpdateTokens(_ context.Context, in *pb.AuthData) (*pb.AuthData,
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	return &pb.AuthData{AccessToken: access, RefreshToken: refresh}, nil
+} //TODO: добавить RefreshToken к User в постгресе + проверять на входе
+
+func (s *server) GetPrivateKey(_ context.Context, in *pb.KeyRequest) (*pb.PrivateKey, error) {
+	return &pb.PrivateKey{Key: x509.MarshalPKCS1PrivateKey(s.jwt.GetPrivateKey())}, nil
 }

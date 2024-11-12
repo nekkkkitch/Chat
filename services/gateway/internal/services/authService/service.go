@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
 	"flag"
 	"log"
 
-	authService "Chat/pkg/grpc/pb"
+	authService "Chat/pkg/grpc/pb/authService"
 	"Chat/pkg/models"
 
 	"google.golang.org/grpc"
@@ -56,4 +58,16 @@ func (c *Client) UpdateTokens(tokens models.AuthData) (*models.AuthData, error) 
 		return nil, err
 	}
 	return &models.AuthData{AccessToken: authDataGed.AccessToken, RefreshToken: authDataGed.RefreshToken}, nil
+}
+
+func (c *Client) GetPrivateKey() (*rsa.PrivateKey, error) {
+	data, err := c.client.GetPrivateKey(context.Background(), &authService.KeyRequest{})
+	if err != nil {
+		return nil, err
+	}
+	key, err := x509.ParsePKCS1PrivateKey(data.Key)
+	if err != nil {
+		return nil, err
+	}
+	return key, nil
 }

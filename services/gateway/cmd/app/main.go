@@ -29,17 +29,17 @@ func main() {
 		log.Fatalln(err)
 	}
 	log.Println("Config file read successfully")
-	jwt, err := jwt.New(cfg.JWTConfig)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	log.Println("JWT created successfully")
-	log.Printf("Private key: %v\n Public key: %v", jwt.PrivateKey, jwt.PublicKey)
 	authService, err := aus.New(cfg.AUSConfig)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	log.Println("Auth service connected successfully")
+	key, err := authService.GetPrivateKey()
+	if err != nil {
+		log.Fatalln("Problem with getting key: " + err.Error())
+	}
+	jwt, err := jwt.NewWithKey(cfg.JWTConfig, key)
+	log.Println("JWT created successfully")
 	router := rtr.New(cfg.RTRConfig, authService, &jwt)
 	log.Printf("Router is listening on %v:%v\n", router.Config.Host, router.Config.Port)
 	router.Listen()
