@@ -40,7 +40,7 @@ func main() {
 		log.Fatalln(err)
 	}
 	log.Println("JWT created successfully")
-	service, err := server.NewService(cfg.AuthServerConfig, &jwt, db)
+	service, err := server.New(cfg.AuthServerConfig, &jwt, db)
 	if err != nil {
 		log.Fatalln(err)
 	}

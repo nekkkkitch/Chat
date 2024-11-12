@@ -2,6 +2,7 @@ package router
 
 import (
 	"Chat/pkg/models"
+	"crypto/rsa"
 	"encoding/json"
 	"log"
 
@@ -13,6 +14,7 @@ type Router struct {
 	App    *fiber.App
 	Config *Config
 	jwt    IJWTManager
+	asvc   IAuthService
 }
 
 type Config struct {
@@ -27,33 +29,40 @@ type IAuthService interface {
 }
 
 type IJWTManager interface {
+	GetPublicKey() *rsa.PublicKey
 	ValidateToken(c *fiber.Ctx, key string) (bool, error)
 	AuthFilter(c *fiber.Ctx) bool
 	RefreshFilter(c *fiber.Ctx) bool
 }
 
-var (
-	asvc IAuthService
-)
-
 func New(cfg *Config, auservice IAuthService, jwt IJWTManager) *Router {
 	app := fiber.New()
+	router := &Router{App: app, Config: cfg, jwt: jwt, asvc: auservice}
+	/*
+		app.Use(jwtware.New(jwtware.Config{
+			SigningKey: jwtware.SigningKey{
+				JWTAlg: jwtware.RS256,
+				Key:    jwt.GetPublicKey(),
+			},
+		}))
+	*/
 	app.Use(keyauth.New(keyauth.Config{
-		Next:      jwt.AuthFilter,
-		KeyLookup: "cookie:access_token",
-		Validator: jwt.ValidateToken,
+		Next:         router.jwt.AuthFilter,
+		KeyLookup:    "header:X-Access-Token",
+		Validator:    router.jwt.ValidateToken,
+		ErrorHandler: router.ErrorHandler(),
 	}))
 	app.Use(keyauth.New(keyauth.Config{
-		Next:      jwt.RefreshFilter,
-		KeyLookup: "cookie:refresh_token",
-		Validator: jwt.ValidateToken,
+		Next:         router.jwt.RefreshFilter,
+		KeyLookup:    "header:X-Access-Token",
+		Validator:    router.jwt.ValidateToken,
+		ErrorHandler: router.ErrorHandler(),
 	}))
-	app.Post("/login", Login)
-	app.Post("/register", Register)
-	app.Post("/refresh", UpdateTokens)
-	app.Get("/", Ping)
-	asvc = auservice
-	return &Router{App: app, Config: cfg, jwt: jwt}
+	router.App.Post("/login", router.Login())
+	router.App.Post("/register", router.Register())
+	router.App.Get("/refresh", router.UpdateTokens())
+	router.App.Get("/", Ping)
+	return router
 }
 
 func (r *Router) Listen() {
@@ -65,58 +74,71 @@ func Ping(c *fiber.Ctx) error {
 	return c.JSON("aboba")
 }
 
-func Login(c *fiber.Ctx) error {
-	var user models.User
-	err := json.Unmarshal(c.Body(), &user)
-	if err != nil {
-		return err
-	}
-	log.Printf("User to login: %s\n", user.Login)
-	authData, err := asvc.Login(user)
-	if err != nil {
-		switch err.Error() {
-		case "rpc error: code = AlreadyExists desc = login occupied":
-			c.Status(fiber.StatusBadRequest)
-			return nil
+func (r *Router) Login() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		var user models.User
+		err := json.Unmarshal(c.Body(), &user)
+		if err != nil {
+			return err
 		}
-		return err
+		log.Printf("User to login: %s\n", user.Login)
+		authData, err := r.asvc.Login(user)
+		if err != nil {
+			switch err.Error() {
+			case "rpc error: code = AlreadyExists desc = login occupied":
+				c.Status(fiber.StatusBadRequest)
+				return nil
+			}
+			return err
+		}
+		log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
+		c.Context().Response.Header.Set("access_token", authData.AccessToken)
+		c.Context().Response.Header.Set("refresh_token", authData.RefreshToken)
+		return nil
 	}
-	log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
-	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "access_token="+authData.AccessToken)
-	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "refresh_token="+authData.RefreshToken)
-	return nil
 }
 
-func Register(c *fiber.Ctx) error {
-	var user models.User
-	err := json.Unmarshal(c.Body(), &user)
-	if err != nil {
-		return err
+func (r *Router) Register() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		var user models.User
+		err := json.Unmarshal(c.Body(), &user)
+		if err != nil {
+			return err
+		}
+		log.Printf("User to register: %s\n", user.Login)
+		authData, err := r.asvc.Register(user)
+		if err != nil {
+			return err
+		}
+		log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
+		c.Context().Response.Header.Set("access_token", authData.AccessToken)
+		c.Context().Response.Header.Set("refresh_token", authData.RefreshToken)
+		return nil
 	}
-	log.Printf("User to register: %s\n", user.Login)
-	authData, err := asvc.Register(user)
-	if err != nil {
-		return err
-	}
-	log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
-	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "access_token="+authData.AccessToken)
-	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "refresh_token="+authData.RefreshToken)
-	return nil
+
 }
 
-func UpdateTokens(c *fiber.Ctx) error {
-	authData := models.AuthData{}
-	if err := c.CookieParser(&authData); err != nil {
-		return err
-	}
-	log.Printf("Got tokens:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
-	authDataResp, err := asvc.UpdateTokens(authData)
-	if err != nil {
-		return err
-	}
+func (r *Router) UpdateTokens() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		authData := models.AuthData{}
+		if err := c.CookieParser(&authData); err != nil {
+			return err
+		}
+		log.Printf("Got tokens:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
+		authDataResp, err := r.asvc.UpdateTokens(authData)
+		if err != nil {
+			return err
+		}
 
-	log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authDataResp.AccessToken[:20], authDataResp.RefreshToken[:20])
-	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "access_token="+authDataResp.AccessToken)
-	c.Context().Response.Header.Set(fiber.HeaderSetCookie, "refresh_token="+authDataResp.RefreshToken)
-	return nil
+		log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authDataResp.AccessToken[:20], authDataResp.RefreshToken[:20])
+		c.Context().Response.Header.Set("X-Acess-Token", authDataResp.AccessToken)
+		c.Context().Response.Header.Set("X-Refresh-Token", authDataResp.RefreshToken)
+		return nil
+	}
+}
+
+func (r *Router) ErrorHandler() func(c *fiber.Ctx, err error) error {
+	return func(c *fiber.Ctx, err error) error {
+		return err
+	}
 }

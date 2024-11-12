@@ -46,7 +46,7 @@ type Service struct {
 	db         IDBManager
 }
 
-func NewService(cfg *Config, jwt IJWTManager, db IDBManager) (*Service, error) {
+func New(cfg *Config, jwt IJWTManager, db IDBManager) (*Service, error) {
 	log.Println(cfg.Port)
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s", cfg.Port))
 	if err != nil {

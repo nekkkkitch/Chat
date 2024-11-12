@@ -133,6 +133,11 @@ func (j *JWT) GetIDFromToken(token string) (int, error) {
 	return id, nil
 }
 
+func (j *JWT) GetPublicKey() *rsa.PublicKey {
+	return j.PublicKey
+}
+
+
 func getIdFromClaims(claims jwt.MapClaims) int {
 	idString := claims["sub"].(string)
 	user_id, err := strconv.Atoi(idString)

@@ -34,6 +34,7 @@ func main() {
 		log.Fatalln(err)
 	}
 	log.Println("JWT created successfully")
+	log.Printf("Private key: %v\n Public key: %v", jwt.PrivateKey, jwt.PublicKey)
 	authService, err := aus.New(cfg.AUSConfig)
 	if err != nil {
 		log.Fatalln(err)
