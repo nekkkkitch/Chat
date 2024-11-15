@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/keyauth"
 	"github.com/golang-jwt/jwt/v5"
@@ -16,11 +17,17 @@ type Router struct {
 	Config *Config
 	jwt    IJWTManager
 	asvc   IAuthService
+	broker IBroker
 }
 
 type Config struct {
 	Host string `yaml:"router_host" env-prefix:"ROUTERHOST"`
 	Port string `yaml:"router_port" env-prefix:"ROUTERPORT"`
+}
+
+type IBroker interface {
+	SendMessage(msg models.Message, topic string) error
+	OpenMessageTube(ch *chan models.BeautifiedMessage, topic string) error
 }
 
 type IAuthService interface {
@@ -31,26 +38,47 @@ type IAuthService interface {
 
 type IJWTManager interface {
 	GetPublicKey() *rsa.PublicKey
+	GetIDFromToken(token string) (int, error)
 	ValidateToken(c *fiber.Ctx, key string) (bool, error)
 	AuthFilter(c *fiber.Ctx) bool
 	RefreshFilter(c *fiber.Ctx) bool
 }
 
-func New(cfg *Config, auservice IAuthService, jwt IJWTManager) *Router {
+type Client struct {
+	conn *websocket.Conn
+	id   int
+}
+
+var (
+	clients    = make(map[*websocket.Conn]int)
+	register   = make(chan Client)
+	broadcast  = make(chan models.BeautifiedMessage)
+	unregister = make(chan *websocket.Conn)
+)
+
+func New(cfg *Config, auservice IAuthService, jwt IJWTManager, broker IBroker) *Router {
 	app := fiber.New()
-	router := &Router{App: app, Config: cfg, jwt: jwt, asvc: auservice}
-	app.Use(keyauth.New(keyauth.Config{
+	router := &Router{App: app, Config: cfg, jwt: jwt, asvc: auservice, broker: broker}
+	router.App.Use(keyauth.New(keyauth.Config{
 		Next:         router.jwt.AuthFilter,
 		KeyLookup:    "header:X-Access-Token",
 		Validator:    router.jwt.ValidateToken,
 		ErrorHandler: router.ErrorHandler(),
 	}))
-	app.Use(keyauth.New(keyauth.Config{
+	router.App.Use(keyauth.New(keyauth.Config{
 		Next:         router.jwt.RefreshFilter,
-		KeyLookup:    "header:X-Access-Token",
+		KeyLookup:    "header:X-Refresh-Token",
 		Validator:    router.jwt.ValidateToken,
 		ErrorHandler: router.ErrorHandler(),
 	}))
+	router.App.Use(func(c *fiber.Ctx) {
+		if websocket.IsWebSocketUpgrade(c) {
+			c.Next()
+		}
+	})
+	go runHub()
+	go router.broker.OpenMessageTube(&broadcast, "shared_message")
+	router.App.Get("/chat", router.RegisterClient())
 	router.App.Post("/login", router.Login())
 	router.App.Post("/register", router.Register())
 	router.App.Get("/refresh", router.UpdateTokens())
@@ -108,7 +136,6 @@ func (r *Router) Register() fiber.Handler {
 		c.Context().Response.Header.Set("refresh_token", authData.RefreshToken)
 		return nil
 	}
-
 }
 
 func (r *Router) UpdateTokens() fiber.Handler {
@@ -128,10 +155,10 @@ func (r *Router) UpdateTokens() fiber.Handler {
 }
 
 func (r *Router) ErrorHandler() func(c *fiber.Ctx, err error) error {
-	return func(c *fiber.Ctx, err error) error {
+	return func(c *fiber.Ctx, inerr error) error {
 		token := c.GetReqHeaders()["X-Access-Token"][0]
 		claims := jwt.MapClaims{}
-		_, err = jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
+		_, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
 			return r.jwt.GetPublicKey(), nil
 		})
 		log.Println(err)
@@ -140,7 +167,61 @@ func (r *Router) ErrorHandler() func(c *fiber.Ctx, err error) error {
 		_, err = jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
 			return r.jwt.GetPublicKey(), nil
 		})
-		log.Println(err)
+		log.Println(err, inerr)
 		return err
+	}
+}
+
+func (r *Router) RegisterClient() fiber.Handler {
+	return websocket.New(func(c *websocket.Conn) {
+		defer func() {
+			unregister <- c
+			c.Close()
+		}()
+		client := Client{conn: c}
+		id, _ := r.jwt.GetIDFromToken(c.Headers("X-Access-Token"))
+		client.id = id
+		register <- client
+		for {
+			_, message, err := c.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					log.Println("Error when reading message:", err.Error())
+				}
+				return
+			}
+			msg := models.Message{}
+			err = json.Unmarshal(message, &msg)
+			if err != nil {
+				log.Println("Cannot unmarshal message: " + err.Error())
+			}
+			msg.Sender = id
+			r.broker.SendMessage(msg, "sent-message")
+		}
+	})
+}
+
+func runHub() {
+	for {
+		select {
+		case connectedClient := <-register:
+			clients[connectedClient.conn] = connectedClient.id
+			log.Println("Connected client: ", connectedClient.id)
+		case connection := <-unregister:
+			log.Println("Client disconnected: ", clients[connection])
+			delete(clients, connection)
+		case message := <-broadcast:
+			log.Println("Received message: ", message)
+			for conn, client := range clients {
+				if client == message.Reciever {
+					if err := conn.WriteMessage(websocket.TextMessage, []byte(message.MessageText)); err != nil {
+						log.Println("Write message error, cannot sent message to client: " + err.Error())
+						unregister <- conn
+						conn.WriteMessage(websocket.CloseMessage, []byte{})
+						conn.Close()
+					}
+				}
+			}
+		}
 	}
 }

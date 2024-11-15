@@ -6,5 +6,5 @@ RUN GOOS=linux go build -a -o gateway ./services/gateway/cmd/app/main.go
 FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/gateway .
-COPY ./cfg.yml .
+COPY ./services/gateway/cfg.yml .
 CMD ["./gateway"]

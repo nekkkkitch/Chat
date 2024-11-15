@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package MsgService;
+
+option go_package = "./";
+
+service Messages{
+    rpc EnterChat(Entering) returns(stream Message);
+    rpc SendMessage(Message) returns(Status);
+    rpc GetMessages(Message) returns(Chat);
+}
+
+message Entering{}
+
+message Message{
+    int32 sender = 1;
+    string reciever = 2;
+    string text = 3;
+}
+
+message BeautifiedMessage{
+    int32 sender = 1;
+    int32 reciever = 2;
+    string text = 3;
+}
+
+message Status{}
+
+message Chat{
+    bytes JsonedChat = 1;
+}
