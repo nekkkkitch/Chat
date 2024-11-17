@@ -35,6 +35,14 @@ services:
       - "50051:50051"
     depends_on:
       - db
+  msg:
+    build:
+      dockerfile: services/msgService/Dockerfile
+      context: .
+    ports:
+      - "50052:50052"
+    depends_on:
+      - db
   gateway:
     build:
       dockerfile: services/gateway/Dockerfile
@@ -43,3 +51,4 @@ services:
       - "8082:8082"
     depends_on:
       - aus
+      - msg

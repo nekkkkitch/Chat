@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"log"
 	"regexp"
 	"strconv"
@@ -35,7 +34,7 @@ const (
 )
 
 var (
-	protectedFromAuthTokenURLs    = []*regexp.Regexp{}
+	needToProvideAuthTokenURLs    = []*regexp.Regexp{}
 	needToProvideRefreshTokenURLs = []*regexp.Regexp{
 		regexp.MustCompile("^/refresh$"),
 	}
@@ -94,9 +93,10 @@ func (j *JWT) ValidateToken(c *fiber.Ctx, token string) (bool, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, jwt.ErrTokenExpired):
-			return false, fmt.Errorf(ExpiredToken)
+			log.Println("Should expire at:", time.Unix(0, int64(claims["exp"].(float64))))
+			return false, err
 		case errors.Is(err, jwt.ErrSignatureInvalid) || errors.Is(err, jwt.ErrTokenUnverifiable):
-			return false, fmt.Errorf(InvalidToken)
+			return false, err
 		default:
 			return false, err
 		}
@@ -104,9 +104,9 @@ func (j *JWT) ValidateToken(c *fiber.Ctx, token string) (bool, error) {
 	return true, nil
 }
 
-func (j *JWT) AuthFilter(c *fiber.Ctx) bool {
+func (j *JWT) AuthFilter(c *fiber.Ctx) bool { //переделать чтобы была одная функция фильтра вместо двух
 	originalURL := strings.ToLower(c.OriginalURL())
-	for _, pattern := range protectedFromAuthTokenURLs {
+	for _, pattern := range needToProvideAuthTokenURLs {
 		if pattern.MatchString(originalURL) {
 			return false
 		}
@@ -129,10 +129,13 @@ func (j *JWT) GetIDFromToken(token string) (int, error) {
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
 		return j.PublicKey, nil
 	})
-	id := getIdFromClaims(claims)
+	if err != nil {
+		return -1, err
+	}
+	id, err := getIdFromClaims(claims)
 	log.Printf("Got id: %v\n", id)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 	return id, nil
 }
@@ -145,13 +148,14 @@ func (j *JWT) GetPublicKey() *rsa.PublicKey {
 	return j.PublicKey
 }
 
-func getIdFromClaims(claims jwt.MapClaims) int {
+func getIdFromClaims(claims jwt.MapClaims) (int, error) {
 	idString := claims["sub"].(string)
 	user_id, err := strconv.Atoi(idString)
 	if err != nil {
-		log.Fatalln(fmt.Sprintf("%v, idString is %v", err, idString))
+		log.Println("Cannot atoi Id from claims")
+		return -1, err
 	}
-	return user_id
+	return user_id, nil
 }
 
 func convertStringToBytesSlice(line string) []byte {

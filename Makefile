@@ -7,7 +7,7 @@ stop:
 start:
 	docker-compose build --no-cache \
 	&& docker-compose up -d
-buildauthpb: # call in dir /pkg/grpc
+buildauthpb: 
 	protoc --proto_path=pkg/grpc/proto/authService --go_out=pkg/grpc/pb/authService --go-grpc_out=pkg/grpc/pb/authService pkg/grpc/proto/authService/*.proto
-buildmsgpb: # call in dir /pkg/grpc
+buildmsgpb: 
 	protoc --proto_path=pkg/grpc/proto/msgService --go_out=pkg/grpc/pb/msgService --go-grpc_out=pkg/grpc/pb/msgService pkg/grpc/proto/msgService/*.proto

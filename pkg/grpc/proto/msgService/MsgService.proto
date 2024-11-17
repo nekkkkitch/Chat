@@ -5,7 +5,7 @@ package MsgService;
 option go_package = "./";
 
 service Messages{
-    rpc EnterChat(Entering) returns(stream Message);
+    rpc EnterChat(Entering) returns(Status);
     rpc SendMessage(Message) returns(Status);
     rpc GetMessages(Message) returns(Chat);
 }
@@ -24,7 +24,9 @@ message BeautifiedMessage{
     string text = 3;
 }
 
-message Status{}
+message Status{
+    string status = 1;
+}
 
 message Chat{
     bytes JsonedChat = 1;

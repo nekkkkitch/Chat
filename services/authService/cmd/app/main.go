@@ -1,8 +1,8 @@
 package main
 
 import (
+	pg "Chat/pkg/db"
 	"Chat/pkg/jwt"
-	pg "Chat/services/authService/internal/db"
 	server "Chat/services/authService/internal/server"
 	"log"
 

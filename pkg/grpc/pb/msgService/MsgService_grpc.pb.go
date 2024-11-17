@@ -28,7 +28,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MessagesClient interface {
-	EnterChat(ctx context.Context, in *Entering, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Message], error)
+	EnterChat(ctx context.Context, in *Entering, opts ...grpc.CallOption) (*Status, error)
 	SendMessage(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Status, error)
 	GetMessages(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Chat, error)
 }
@@ -41,24 +41,15 @@ func NewMessagesClient(cc grpc.ClientConnInterface) MessagesClient {
 	return &messagesClient{cc}
 }
 
-func (c *messagesClient) EnterChat(ctx context.Context, in *Entering, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Message], error) {
+func (c *messagesClient) EnterChat(ctx context.Context, in *Entering, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Messages_ServiceDesc.Streams[0], Messages_EnterChat_FullMethodName, cOpts...)
+	out := new(Status)
+	err := c.cc.Invoke(ctx, Messages_EnterChat_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[Entering, Message]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Messages_EnterChatClient = grpc.ServerStreamingClient[Message]
 
 func (c *messagesClient) SendMessage(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -84,7 +75,7 @@ func (c *messagesClient) GetMessages(ctx context.Context, in *Message, opts ...g
 // All implementations must embed UnimplementedMessagesServer
 // for forward compatibility.
 type MessagesServer interface {
-	EnterChat(*Entering, grpc.ServerStreamingServer[Message]) error
+	EnterChat(context.Context, *Entering) (*Status, error)
 	SendMessage(context.Context, *Message) (*Status, error)
 	GetMessages(context.Context, *Message) (*Chat, error)
 	mustEmbedUnimplementedMessagesServer()
@@ -97,8 +88,8 @@ type MessagesServer interface {
 // pointer dereference when methods are called.
 type UnimplementedMessagesServer struct{}
 
-func (UnimplementedMessagesServer) EnterChat(*Entering, grpc.ServerStreamingServer[Message]) error {
-	return status.Errorf(codes.Unimplemented, "method EnterChat not implemented")
+func (UnimplementedMessagesServer) EnterChat(context.Context, *Entering) (*Status, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EnterChat not implemented")
 }
 func (UnimplementedMessagesServer) SendMessage(context.Context, *Message) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendMessage not implemented")
@@ -127,16 +118,23 @@ func RegisterMessagesServer(s grpc.ServiceRegistrar, srv MessagesServer) {
 	s.RegisterService(&Messages_ServiceDesc, srv)
 }
 
-func _Messages_EnterChat_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(Entering)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _Messages_EnterChat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Entering)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(MessagesServer).EnterChat(m, &grpc.GenericServerStream[Entering, Message]{ServerStream: stream})
+	if interceptor == nil {
+		return srv.(MessagesServer).EnterChat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Messages_EnterChat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessagesServer).EnterChat(ctx, req.(*Entering))
+	}
+	return interceptor(ctx, in, info, handler)
 }
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Messages_EnterChatServer = grpc.ServerStreamingServer[Message]
 
 func _Messages_SendMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Message)
@@ -182,6 +180,10 @@ var Messages_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*MessagesServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "EnterChat",
+			Handler:    _Messages_EnterChat_Handler,
+		},
+		{
 			MethodName: "SendMessage",
 			Handler:    _Messages_SendMessage_Handler,
 		},
@@ -190,12 +192,6 @@ var Messages_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Messages_GetMessages_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "EnterChat",
-			Handler:       _Messages_EnterChat_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "MsgService.proto",
 }

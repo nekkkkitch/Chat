@@ -46,33 +46,32 @@ func New(cfg *Config) (*KafkaConnection, error) {
 	return &kafkaConnection, nil
 }
 
-func (kfk *KafkaConnection) SendMessage(msg models.Message, topic string) error {
-	log.Println("Writing message:", msg)
+func (kfk *KafkaConnection) SendMessage(msg models.BeautifiedMessage, topic string) error {
+	log.Println("Sending message:", msg)
 	conn := kfk.ProducerTopics[topic]
 	jsonedMsg, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	writtenBytes, err := conn.Write(jsonedMsg)
-	log.Println("Bytes written:", writtenBytes)
+	_, err = conn.Write(jsonedMsg)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (kfk *KafkaConnection) OpenMessageTube(ch *chan models.BeautifiedMessage, topic string) error {
+func (kfk *KafkaConnection) OpenMessageTube(ch *chan models.Message, topic string) error {
 	conn := kfk.ConsumerTopics[topic]
 	log.Println("Connection address:", conn.RemoteAddr())
 	batch := conn.ReadBatch(70, 1e6)
-	b := make([]byte, 70)
+	b := make([]byte, 10)
 	for {
 		n, err := batch.Read(b)
 		if err != nil {
 			break
 		}
-		log.Println("Got message: ", string(b[:n]))
-		msg := models.BeautifiedMessage{}
+		log.Println("Got message: ", b[:n])
+		msg := models.Message{}
 		err = json.Unmarshal(b[:n], &msg)
 		if err != nil {
 			break

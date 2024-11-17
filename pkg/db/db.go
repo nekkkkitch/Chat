@@ -65,15 +65,16 @@ func (d *DB) GetUserByID(id int) (models.User, error) {
 
 func (d *DB) GetUserByLogin(login string) (models.User, error) {
 	user := models.User{Login: login}
-	var pglogin pgtype.Text
+	var user_id pgtype.Int4
 	var password pgtype.Text
-	err := d.db.QueryRow(context.Background(), `select id, password from public.users where login=$1`, login).Scan(&pglogin, &password)
-	user.Login = pglogin.String
+	err := d.db.QueryRow(context.Background(), `select id, password from public.users where login=$1`, login).Scan(&user_id, &password)
+	user.Login = login
+	user.ID = int(user_id.Int32)
 	user.Password = password.String
 	if err != nil {
 		return models.User{}, err
 	}
-	log.Printf("Returning user %v %v\n", user.ID, user.Password)
+	log.Printf("Returning user %v %v %v\n", user.ID, user.Login, user.Password[:10])
 	return user, nil
 }
 
