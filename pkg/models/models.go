@@ -12,13 +12,15 @@ type AuthData struct {
 }
 
 type Message struct {
-	MessageText string `json:"message_text"`
-	Sender      int    `json:"message_sender"`
-	Reciever    string `json:"message_reciever"`
+	MessageText string `json:"text"`
+	Sender      int    `json:"sender"`
+	Reciever    string `json:"reciever"`
+	Hash        string `json:"hash"`
 }
 
 type BeautifiedMessage struct {
-	MessageText string `json:"message_text"`
-	Sender      int    `json:"message_sender"`
-	Reciever    int    `json:"message_reciever"`
+	MessageText string `json:"text"`
+	Sender      int    `json:"sender"`
+	Reciever    int    `json:"reciever"`
+	Hash        string `json:"hash"`
 }

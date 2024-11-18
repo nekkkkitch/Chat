@@ -109,7 +109,7 @@ func (r *Router) Listen() {
 
 func Ping(c *fiber.Ctx) error {
 	log.Println("Ping")
-	return c.JSON("aboba")
+	return c.JSON("Ping")
 }
 
 func (r *Router) Login() fiber.Handler {
@@ -180,6 +180,8 @@ func (r *Router) ErrorHandler() func(c *fiber.Ctx, err error) error {
 	}
 }
 
+// Создаёт websocket соединение с клиентом, передает его id и соединение в канал регистрации и ожидает сообщение от него(см runHub()).
+// При получении сообщение передается в брокер(см kafka.SendMessage())
 func (r *Router) RegisterClient() fiber.Handler {
 	return websocket.New(func(c *websocket.Conn) {
 		defer func() {
@@ -223,6 +225,9 @@ func (r *Router) RegisterClient() fiber.Handler {
 	})
 }
 
+// Создаёт хаб с клиентами, которые получает от вебсокета. При получении сообщения от брокера возвращает его пользователю с
+// id, указанным в сообщении.
+// Также, удаляет клиента из мапы клиентов при его отключении
 func runHub() {
 	log.Println("Opened clients hub")
 	for {

@@ -89,3 +89,20 @@ func (d *DB) CheckSameLogin(login string) (bool, error) {
 	}
 	return true, nil
 }
+
+func (d *DB) GetRefreshToken(id int) (string, error) {
+	var pgtoken pgtype.Text
+	err := d.db.QueryRow(context.Background(), `select refresh_token from public.users where id=$1`, id).Scan(&pgtoken)
+	if err != nil {
+		if err.Error() == pgx.ErrNoRows.Error() {
+			return "", nil
+		}
+		return "", err
+	}
+	return pgtoken.String, nil
+}
+
+func (d *DB) InsertRefreshToken(token string, id int) error {
+	_, err := d.db.Exec(context.Background(), `update public.users set refresh_token=$1 where id=$2`, token, id)
+	return err
+}

@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/dchest/uniuri"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -47,12 +48,13 @@ func New(cfg *Config) (*KafkaConnection, error) {
 }
 
 func (kfk *KafkaConnection) SendMessage(msg models.BeautifiedMessage, topic string) error {
-	log.Println("Sending message:", msg)
 	conn := kfk.ProducerTopics[topic]
+	msg.Hash = uniuri.New()
 	jsonedMsg, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
+	log.Println("Sending message:", msg)
 	_, err = conn.Write(jsonedMsg)
 	if err != nil {
 		return err
@@ -67,50 +69,24 @@ func (kfk *KafkaConnection) OpenMessageTube(ch *chan models.Message, topic strin
 		Partition: 0,
 		MaxBytes:  10e6,
 	})
-	lastMessage := ""
+	lastMessageHash := ""
 	for {
 		msg, err := r.ReadMessage(context.Background())
 		if err != nil {
 			log.Println("Cant read message:", err)
 		}
-		log.Println("Read message:", string(msg.Value))
-		if lastMessage != string(msg.Value) {
-			lastMessage = string(msg.Value)
-			readMessage := models.Message{}
-			err := json.Unmarshal(msg.Value, &readMessage)
-			if err != nil {
-				log.Println("Cant unmarshal message:", err)
-			}
+		log.Println("Got message from broker:", string(msg.Value))
+		readMessage := models.Message{}
+		err = json.Unmarshal(msg.Value, &readMessage)
+		if err != nil {
+			log.Println("Cant unmarshal message:", err)
+		}
+		if readMessage.Hash != lastMessageHash {
+			log.Println("Sending message to gateway")
+			lastMessageHash = readMessage.Hash
 			*ch <- readMessage
+		} else {
+			log.Println("Already got message with the same hash")
 		}
 	}
 }
-
-/*
-func (kfk *KafkaConnection) OpenMessageTube(ch *chan models.Message, topic string) error {
-	conn := kfk.ConsumerTopics[topic]
-	log.Println("Connection address:", conn.RemoteAddr())
-	batch := conn.ReadBatch(70, 1e6)
-	b := make([]byte, 10)
-	for {
-		n, err := batch.Read(b)
-		if err != nil {
-			break
-		}
-		log.Println("Got message: ", b[:n])
-		msg := models.Message{}
-		err = json.Unmarshal(b[:n], &msg)
-		if err != nil {
-			break
-		}
-		*ch <- msg
-	}
-	if err := batch.Close(); err != nil {
-		return err
-	}
-	if err := conn.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-*/

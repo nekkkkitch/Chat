@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
-	"fmt"
 	"log"
 	"net"
 
@@ -33,6 +32,8 @@ type IDBManager interface {
 	AddUser(user models.User) (int, error)
 	GetUserByID(id int) (models.User, error)
 	GetUserByLogin(login string) (models.User, error)
+	InsertRefreshToken(token string, id int) error
+	GetRefreshToken(id int) (string, error)
 }
 
 type server struct {
@@ -51,7 +52,7 @@ type Service struct {
 
 func New(cfg *Config, jwt IJWTManager, db IDBManager) (*Service, error) {
 	log.Println(cfg.Port)
-	lis, err := net.Listen("tcp", fmt.Sprintf("%s", cfg.Port))
+	lis, err := net.Listen("tcp", cfg.Port)
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +87,10 @@ func (s *server) Register(_ context.Context, in *pb.User) (*pb.AuthData, error) 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
+	err = s.db.InsertRefreshToken(refresh, id)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
 	return &pb.AuthData{AccessToken: access, RefreshToken: refresh}, nil
 }
 
@@ -114,6 +119,10 @@ func (s *server) Login(_ context.Context, in *pb.User) (*pb.AuthData, error) {
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
+	err = s.db.InsertRefreshToken(refresh, user.ID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
 	return &pb.AuthData{AccessToken: access, RefreshToken: refresh}, nil
 }
 
@@ -122,7 +131,18 @@ func (s *server) UpdateTokens(_ context.Context, in *pb.AuthData) (*pb.AuthData,
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
+	realRefreshToken, err := s.db.GetRefreshToken(user_id)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
+	if realRefreshToken != in.RefreshToken {
+		return nil, status.Errorf(codes.InvalidArgument, "Refresh token was changed, consider relogin")
+	}
 	access, refresh, err := s.jwt.CreateTokens(user_id)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
+	err = s.db.InsertRefreshToken(access, user_id)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}

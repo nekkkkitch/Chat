@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/dchest/uniuri"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -49,6 +50,7 @@ func New(cfg *Config) (*KafkaConnection, error) {
 func (kfk *KafkaConnection) SendMessage(msg models.Message, topic string) error {
 	log.Println("Writing message:", msg)
 	conn := kfk.ProducerTopics[topic]
+	msg.Hash = uniuri.New()
 	jsonedMsg, err := json.Marshal(msg)
 	if err != nil {
 		return err
@@ -68,21 +70,25 @@ func (kfk *KafkaConnection) OpenMessageTube(ch *chan models.BeautifiedMessage, t
 		Partition: 0,
 		MaxBytes:  10e6,
 	})
-	lastMessage := ""
+	lastMessageHash := ""
 	for {
 		msg, err := r.ReadMessage(context.Background())
 		if err != nil {
 			log.Println("Cant read message:", err)
 		}
-		log.Println("Read message:", string(msg.Value))
-		if lastMessage != string(msg.Value) {
-			lastMessage = string(msg.Value)
-			readMessage := models.BeautifiedMessage{}
-			err := json.Unmarshal(msg.Value, &readMessage)
-			if err != nil {
-				log.Println("Cant unmarshal message:", err)
-			}
-			*ch <- readMessage
+		log.Println("Got message from broker:", string(msg.Value))
+		readMessage := models.BeautifiedMessage{}
+		err = json.Unmarshal(msg.Value, &readMessage)
+		if err != nil {
+			log.Println("Cant unmarshal message:", err)
 		}
+		if readMessage.Hash != lastMessageHash {
+			log.Println("Sending message to gateway")
+			lastMessageHash = readMessage.Hash
+			*ch <- readMessage
+		} else {
+			log.Println("Already got message with the same hash")
+		}
+
 	}
 }
