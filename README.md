@@ -11,6 +11,7 @@
    ```
 # Available requests
 I suggest you to use desktop version of [postman](https://web.postman.co)
+
 IP is localhost:8082
 ### HTTP Requests
 - /register
