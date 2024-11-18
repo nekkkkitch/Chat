@@ -61,6 +61,33 @@ func (kfk *KafkaConnection) SendMessage(msg models.BeautifiedMessage, topic stri
 }
 
 func (kfk *KafkaConnection) OpenMessageTube(ch *chan models.Message, topic string) error {
+	r := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:   []string{kfk.ConsumerTopics[topic].RemoteAddr().String()},
+		Topic:     topic,
+		Partition: 0,
+		MaxBytes:  10e6,
+	})
+	lastMessage := ""
+	for {
+		msg, err := r.ReadMessage(context.Background())
+		if err != nil {
+			log.Println("Cant read message:", err)
+		}
+		log.Println("Read message:", string(msg.Value))
+		if lastMessage != string(msg.Value) {
+			lastMessage = string(msg.Value)
+			readMessage := models.Message{}
+			err := json.Unmarshal(msg.Value, &readMessage)
+			if err != nil {
+				log.Println("Cant unmarshal message:", err)
+			}
+			*ch <- readMessage
+		}
+	}
+}
+
+/*
+func (kfk *KafkaConnection) OpenMessageTube(ch *chan models.Message, topic string) error {
 	conn := kfk.ConsumerTopics[topic]
 	log.Println("Connection address:", conn.RemoteAddr())
 	batch := conn.ReadBatch(70, 1e6)
@@ -86,3 +113,4 @@ func (kfk *KafkaConnection) OpenMessageTube(ch *chan models.Message, topic strin
 	}
 	return nil
 }
+*/

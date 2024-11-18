@@ -62,28 +62,27 @@ func (kfk *KafkaConnection) SendMessage(msg models.Message, topic string) error 
 }
 
 func (kfk *KafkaConnection) OpenMessageTube(ch *chan models.BeautifiedMessage, topic string) error {
-	conn := kfk.ConsumerTopics[topic]
-	log.Println("Connection address:", conn.RemoteAddr())
-	batch := conn.ReadBatch(70, 1e6)
-	b := make([]byte, 70)
+	r := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:   []string{kfk.ConsumerTopics[topic].RemoteAddr().String()},
+		Topic:     topic,
+		Partition: 0,
+		MaxBytes:  10e6,
+	})
+	lastMessage := ""
 	for {
-		n, err := batch.Read(b)
+		msg, err := r.ReadMessage(context.Background())
 		if err != nil {
-			break
+			log.Println("Cant read message:", err)
 		}
-		log.Println("Got message: ", string(b[:n]))
-		msg := models.BeautifiedMessage{}
-		err = json.Unmarshal(b[:n], &msg)
-		if err != nil {
-			break
+		log.Println("Read message:", string(msg.Value))
+		if lastMessage != string(msg.Value) {
+			lastMessage = string(msg.Value)
+			readMessage := models.BeautifiedMessage{}
+			err := json.Unmarshal(msg.Value, &readMessage)
+			if err != nil {
+				log.Println("Cant unmarshal message:", err)
+			}
+			*ch <- readMessage
 		}
-		*ch <- msg
 	}
-	if err := batch.Close(); err != nil {
-		return err
-	}
-	if err := conn.Close(); err != nil {
-		return err
-	}
-	return nil
 }
