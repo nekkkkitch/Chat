@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -104,5 +105,58 @@ func (d *DB) GetRefreshToken(id int) (string, error) {
 
 func (d *DB) InsertRefreshToken(token string, id int) error {
 	_, err := d.db.Exec(context.Background(), `update public.users set refresh_token=$1 where id=$2`, token, id)
+	return err
+}
+
+func (d *DB) GetMessages(firstId, secondId int) ([]models.BeautifiedMessage, error) {
+	chatId, err := d.GetChat(firstId, secondId)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := d.db.Query(context.Background(), `select message_text from public.messages where chat_id = $1`, chatId)
+	if err != nil {
+		return nil, err
+	}
+	msgs := []models.BeautifiedMessage{}
+	for rows.Next() {
+		msg := models.BeautifiedMessage{}
+		var chat pgtype.Text
+		rows.Scan(&chat)
+		msg.Text = chat.String
+		msgs = append(msgs, msg)
+	}
+	return msgs, nil
+}
+
+func (d *DB) GetChat(firstId, secondId int) (int, error) {
+	var pgChatId pgtype.Int4
+	err := d.db.QueryRow(context.Background(), `select id from public.chats where first_user = $1 and second_user = $2`,
+		min(firstId, secondId), max(firstId, secondId)).Scan(&pgChatId)
+	if err != nil {
+		return 0, err
+	}
+	return int(pgChatId.Int32), nil
+}
+
+func (d *DB) TryAddNewChat(firstId, secondId int) (int, error) {
+	var chatId pgtype.Int4
+	err := d.db.QueryRow(context.Background(), `select id from public.chats where first_user = $1 and second_user = $2`,
+		min(firstId, secondId), max(firstId, secondId)).Scan(&chatId)
+	log.Println("Adding chat error:", err)
+	if err != pgx.ErrNoRows {
+		return int(chatId.Int32), err
+	}
+	err = d.db.QueryRow(context.Background(), `insert into public.chats(first_user, second_user) values($1, $2) returning id`,
+		min(firstId, secondId), max(firstId, secondId)).Scan(&chatId)
+	return int(chatId.Int32), err
+}
+
+func (d *DB) AddMessage(msg models.BeautifiedMessage, sendTime time.Time) error {
+	chatId, err := d.TryAddNewChat(msg.Sender, msg.Reciever)
+	if err != nil {
+		return err
+	}
+	_, err = d.db.Exec(context.Background(), `insert into public.messages(chat_id, sender, reciever, send_time, message_text) values($1, $2, $3, $4, $5)`,
+		chatId, msg.Sender, msg.Reciever, sendTime, msg.Text)
 	return err
 }

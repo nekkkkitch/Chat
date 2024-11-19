@@ -5,6 +5,6 @@ RUN GOOS=linux go build -a -o msg ./services/msgService/cmd/app/main.go
 
 FROM alpine:latest
 WORKDIR /app
-COPY --from=builder /app/msgService .
+COPY --from=builder /app/msg .
 COPY ./services/msgService/cfg.yml .
-CMD ["./msgService"]
+CMD ["./msg"]

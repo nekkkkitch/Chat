@@ -4,11 +4,14 @@ import (
 	pb "Chat/pkg/grpc/pb/msgService"
 	"Chat/pkg/models"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Config struct {
@@ -20,6 +23,8 @@ type IDBManager interface {
 	AddUser(user models.User) (int, error)
 	GetUserByID(id int) (models.User, error)
 	GetUserByLogin(login string) (models.User, error)
+	AddMessage(msg models.BeautifiedMessage, sendTime time.Time) error
+	GetMessages(firstId, secondId int) ([]models.BeautifiedMessage, error)
 }
 
 type IBroker interface {
@@ -55,10 +60,11 @@ func New(cfg *Config, db IDBManager, brkr IBroker) (*Service, error) {
 	pb.RegisterMessagesServer(s, &server{db: db, broker: brkr})
 	svc := Service{MsgServer: s, Listener: &lis, cfg: cfg, broker: brkr, db: db}
 	log.Printf("Auth server listening at %v\n", lis.Addr())
+	svc.EnterChat()
 	return &svc, nil
 }
 
-func (s *server) SendMessage(_ context.Context, in *pb.Message) (*pb.Status, error) {
+func (s *Service) SendMessage(_ context.Context, in *pb.Message) (*pb.Status, error) {
 	log.Println("Got message:", in)
 	beautifiedmsg := models.BeautifiedMessage{Sender: int(in.Sender)}
 	sender, err := s.db.GetUserByID(int(in.Sender))
@@ -70,24 +76,49 @@ func (s *server) SendMessage(_ context.Context, in *pb.Message) (*pb.Status, err
 		return nil, err
 	}
 	beautifiedmsg.Reciever = reciever.ID
-	beautifiedmsg.MessageText = fmt.Sprintf("Sender: %v\n%v", sender.Login, in.Text)
-	s.broker.SendMessage(beautifiedmsg, "shared_message")
+	beautifiedmsg.Text = fmt.Sprintf("%v\n%v:\n%v", in.SendTime.AsTime().Format("02.01 15:04"), sender.Login, in.Text)
+	log.Println("Sending message:", beautifiedmsg)
+	err = s.db.AddMessage(beautifiedmsg, in.SendTime.AsTime())
+	if err != nil {
+		log.Println("Failed to save message:", err.Error())
+	}
+	err = s.broker.SendMessage(beautifiedmsg, "shared_message")
+	if err != nil {
+		log.Println("Failed to send message via broker:", err.Error())
+	}
 	return nil, nil
 }
 
-func (s *server) EnterChat(_ context.Context, _ *pb.Entering) (*pb.Status, error) {
+func (s *Service) EnterChat() error {
 	log.Println("Opening chat")
 	go s.broker.OpenMessageTube(&broadcast, "sent_message")
 	go s.ReadMessages()
-	return nil, nil
+	return nil
 }
 
-func (s *server) ReadMessages() {
+func (s *Service) ReadMessages() {
 	for msg := range broadcast {
 		log.Println("Got message:", msg)
-		_, err := s.SendMessage(context.Background(), &pb.Message{Sender: int32(msg.Sender), Reciever: msg.Reciever, Text: msg.MessageText})
+		_, err := s.SendMessage(context.Background(), &pb.Message{Sender: int32(msg.Sender), Reciever: msg.Reciever,
+			Text: msg.Text, SendTime: timestamppb.New(msg.SendTime)})
 		if err != nil {
 			log.Println("Failed to send message: " + err.Error())
 		}
 	}
+}
+
+func (s *server) GetMessages(_ context.Context, in *pb.Message) (*pb.Chat, error) {
+	reciever, err := s.db.GetUserByLogin(in.Reciever)
+	if err != nil {
+		return nil, err
+	}
+	msgs, err := s.db.GetMessages(int(in.Sender), reciever.ID)
+	if err != nil {
+		return nil, err
+	}
+	jsonedMsgs, err := json.Marshal(msgs)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Chat{JsonedChat: jsonedMsgs}, nil
 }

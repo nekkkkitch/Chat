@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type User struct {
 	ID       int    `json:"id"`
 	Login    string `json:"login"`
@@ -12,15 +14,16 @@ type AuthData struct {
 }
 
 type Message struct {
-	MessageText string `json:"text"`
-	Sender      int    `json:"sender"`
-	Reciever    string `json:"reciever"`
-	Hash        string `json:"hash"`
+	Text     string    `json:"text"`
+	Sender   int       `json:"sender"`
+	Reciever string    `json:"reciever"`
+	SendTime time.Time `json:"time"`
+	Hash     string    `json:"hash"`
 }
 
 type BeautifiedMessage struct {
-	MessageText string `json:"text"`
-	Sender      int    `json:"sender"`
-	Reciever    int    `json:"reciever"`
-	Hash        string `json:"hash"`
+	Text     string `json:"text"`
+	Sender   int    `json:"sender"`
+	Reciever int    `json:"reciever"`
+	Hash     string `json:"hash"`
 }

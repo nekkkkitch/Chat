@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
@@ -39,6 +40,7 @@ type IAuthService interface {
 
 type IMsgService interface {
 	OpenChat() error
+	GetMessages(msg models.Message) ([]models.BeautifiedMessage, error)
 }
 
 type IJWTManager interface {
@@ -95,11 +97,8 @@ func New(cfg *Config, auservice IAuthService, msgservice IMsgService, jwt IJWTMa
 	router.App.Post("/login", router.Login())
 	router.App.Post("/register", router.Register())
 	router.App.Get("/refresh", router.UpdateTokens())
+	router.App.Get("/getchat", router.GetChat())
 	router.App.Get("/ping", Ping)
-	err := router.msgs.OpenChat()
-	if err != nil {
-		return nil, err
-	}
 	return &router, nil
 }
 
@@ -171,6 +170,26 @@ func (r *Router) UpdateTokens() fiber.Handler {
 	}
 }
 
+func (r *Router) GetChat() func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		requesterId, err := r.jwt.GetIDFromToken(c.GetReqHeaders()["X-Access-Token"][0])
+		if err != nil {
+			return err
+		}
+		msgs, err := r.msgs.GetMessages(models.Message{Sender: requesterId, Reciever: c.Query("user")})
+		if err != nil {
+			return err
+		}
+		returnText := "\n"
+		for _, elem := range msgs {
+			returnText += elem.Text
+			returnText += "\n"
+		}
+		_, err = c.WriteString(returnText)
+		return err
+	}
+}
+
 func (r *Router) ErrorHandler() func(c *fiber.Ctx, err error) error {
 	return func(c *fiber.Ctx, err error) error {
 		log.Println("Bad access token: ", c.GetReqHeaders()["X-Access-Token"])
@@ -211,6 +230,7 @@ func (r *Router) RegisterClient() fiber.Handler {
 			}
 			msg := models.Message{}
 			err = json.Unmarshal(message, &msg)
+			msg.SendTime = time.Now().Local()
 			if err != nil {
 				log.Println("Cannot unmarshal message: " + err.Error())
 				return
@@ -242,7 +262,7 @@ func runHub() {
 			log.Println("Received message: ", message)
 			for conn, client := range clients {
 				if client == message.Reciever {
-					if err := conn.WriteMessage(websocket.TextMessage, []byte(message.MessageText)); err != nil {
+					if err := conn.WriteMessage(websocket.TextMessage, []byte(message.Text)); err != nil {
 						log.Println("Write message error, cannot sent message to client: " + err.Error())
 						unregister <- conn
 						conn.WriteMessage(websocket.CloseMessage, []byte{})

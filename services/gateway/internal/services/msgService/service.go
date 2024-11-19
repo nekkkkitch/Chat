@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log"
 
 	msgService "Chat/pkg/grpc/pb/msgService"
+	"Chat/pkg/models"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -35,4 +37,17 @@ func New(cfg *Config) (*Client, error) {
 func (c *Client) OpenChat() error {
 	_, err := c.client.EnterChat(context.Background(), &msgService.Entering{})
 	return err
+}
+
+func (c *Client) GetMessages(msg models.Message) ([]models.BeautifiedMessage, error) {
+	resp, err := c.client.GetMessages(context.Background(), &msgService.Message{Sender: int32(msg.Sender), Reciever: msg.Reciever})
+	if err != nil {
+		return nil, err
+	}
+	msgs := []models.BeautifiedMessage{}
+	err = json.Unmarshal(resp.JsonedChat, &msgs)
+	if err != nil {
+		return nil, err
+	}
+	return msgs, nil
 }

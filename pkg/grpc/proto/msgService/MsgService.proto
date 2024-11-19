@@ -2,20 +2,18 @@ syntax = "proto3";
 
 package MsgService;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "./";
 
 service Messages{
-    rpc EnterChat(Entering) returns(Status);
-    rpc SendMessage(Message) returns(Status);
     rpc GetMessages(Message) returns(Chat);
 }
-
-message Entering{}
-
 message Message{
     int32 sender = 1;
     string reciever = 2;
     string text = 3;
+    google.protobuf.Timestamp sendTime = 4;
 }
 
 message BeautifiedMessage{

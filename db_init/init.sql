@@ -15,9 +15,27 @@ create schema if not exists public;
 alter schema public owner to pg_database_owner;
 
 create table if not exists public.users(
-    id serial not null,
-    login text not null,
-    password text not null
+    id serial not null primary key,
+    login varchar(24) not null,
+    password text not null,
+    refresh_token text
+);
+
+create table if not exists public.chats(
+    id serial not null primary key,
+    first_user integer not null references public.users(id),
+    second_user integer not null references public.users(id)
+);
+
+create table if not exists public.messages(
+    id serial not null primary key,
+    chat_id integer not null references public.chats(id),
+    sender integer not null references public.users(id),
+    reciever integer not null references public.users(id),
+    send_time timestamp not null,
+    message_text text
 );
 
 alter table users owner to user;
+alter table chats owner to user;
+alter table messages owner to user;
