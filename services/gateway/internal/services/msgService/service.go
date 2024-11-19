@@ -23,6 +23,7 @@ type Client struct {
 	conn   *grpc.ClientConn
 }
 
+// Создание клиента для msgService
 func New(cfg *Config) (*Client, error) {
 	flag.Parse()
 	conn, err := grpc.NewClient(cfg.Host+cfg.Port, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -34,11 +35,7 @@ func New(cfg *Config) (*Client, error) {
 	return &Client{client: c, conn: conn}, nil
 }
 
-func (c *Client) OpenChat() error {
-	_, err := c.client.EnterChat(context.Background(), &msgService.Entering{})
-	return err
-}
-
+// Вызов функции для получения всей переписки
 func (c *Client) GetMessages(msg models.Message) ([]models.BeautifiedMessage, error) {
 	resp, err := c.client.GetMessages(context.Background(), &msgService.Message{Sender: int32(msg.Sender), Reciever: msg.Reciever})
 	if err != nil {

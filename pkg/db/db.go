@@ -24,6 +24,7 @@ type DB struct {
 	db     *pgx.Conn
 }
 
+// Создает соединение с существующей БД
 func New(cfg *Config) (*DB, error) {
 	d := &DB{config: cfg}
 	connection := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName)
@@ -36,10 +37,12 @@ func New(cfg *Config) (*DB, error) {
 	return d, nil
 }
 
+// Закрывает соединение с БД
 func (d *DB) Close() error {
 	return d.db.Close(context.Background())
 }
 
+// Добавляет нового пользователя в БД
 func (d *DB) AddUser(user models.User) (int, error) {
 	log.Println("Trying to insert user " + user.Login)
 	err := d.db.QueryRow(context.Background(), `insert into public.users(login, password) values($1, $2) returning id`, user.Login, user.Password).Scan(&user.ID)
@@ -50,6 +53,7 @@ func (d *DB) AddUser(user models.User) (int, error) {
 	return user.ID, nil
 }
 
+// Возвращает юзера по его id
 func (d *DB) GetUserByID(id int) (models.User, error) {
 	user := models.User{ID: id}
 	var login pgtype.Text
@@ -64,6 +68,7 @@ func (d *DB) GetUserByID(id int) (models.User, error) {
 	return user, nil
 }
 
+// Возвращает юзера по логину
 func (d *DB) GetUserByLogin(login string) (models.User, error) {
 	user := models.User{Login: login}
 	var user_id pgtype.Int4
@@ -79,6 +84,7 @@ func (d *DB) GetUserByLogin(login string) (models.User, error) {
 	return user, nil
 }
 
+// Проверяет на существование пользователя с логином в базе
 func (d *DB) CheckSameLogin(login string) (bool, error) {
 	var id int
 	err := d.db.QueryRow(context.Background(), `select id from public.users where login=$1`, login).Scan(&id)
@@ -91,6 +97,7 @@ func (d *DB) CheckSameLogin(login string) (bool, error) {
 	return true, nil
 }
 
+// Возвращает рефреш токен пользователя для сравнения
 func (d *DB) GetRefreshToken(id int) (string, error) {
 	var pgtoken pgtype.Text
 	err := d.db.QueryRow(context.Background(), `select refresh_token from public.users where id=$1`, id).Scan(&pgtoken)
@@ -103,11 +110,13 @@ func (d *DB) GetRefreshToken(id int) (string, error) {
 	return pgtoken.String, nil
 }
 
+// Добавляет/меняет рефреш токен пользователя
 func (d *DB) InsertRefreshToken(token string, id int) error {
 	_, err := d.db.Exec(context.Background(), `update public.users set refresh_token=$1 where id=$2`, token, id)
 	return err
 }
 
+// Получение всех сообщений между пользователями
 func (d *DB) GetMessages(firstId, secondId int) ([]models.BeautifiedMessage, error) {
 	chatId, err := d.GetChat(firstId, secondId)
 	if err != nil {
@@ -131,6 +140,7 @@ func (d *DB) GetMessages(firstId, secondId int) ([]models.BeautifiedMessage, err
 	return msgs, nil
 }
 
+// Получение id чата, в котором "находятся" сообщения между пользователями
 func (d *DB) GetChat(firstId, secondId int) (int, error) {
 	var pgChatId pgtype.Int4
 	err := d.db.QueryRow(context.Background(), `select id from public.chats where first_user = $1 and second_user = $2`,
@@ -141,6 +151,7 @@ func (d *DB) GetChat(firstId, secondId int) (int, error) {
 	return int(pgChatId.Int32), nil
 }
 
+// Попытка добавить новый чат(не работает, если два пользователя уже переписывались)
 func (d *DB) TryAddNewChat(firstId, secondId int) (int, error) {
 	var chatId pgtype.Int4
 	err := d.db.QueryRow(context.Background(), `select id from public.chats where first_user = $1 and second_user = $2`,
@@ -154,6 +165,7 @@ func (d *DB) TryAddNewChat(firstId, secondId int) (int, error) {
 	return int(chatId.Int32), err
 }
 
+// Добавляет сообщение в чат(создает его, если чата не было)
 func (d *DB) AddMessage(msg models.BeautifiedMessage, sendTime time.Time) error {
 	chatId, err := d.TryAddNewChat(msg.Sender, msg.Reciever)
 	if err != nil {

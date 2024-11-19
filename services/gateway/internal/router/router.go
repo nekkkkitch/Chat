@@ -39,7 +39,6 @@ type IAuthService interface {
 }
 
 type IMsgService interface {
-	OpenChat() error
 	GetMessages(msg models.Message) ([]models.BeautifiedMessage, error)
 }
 
@@ -63,6 +62,7 @@ var (
 	unregister = make(chan *websocket.Conn)
 )
 
+// Создание рутов для запросов с применением middleware для проверки валидности токенов и началом получения сообщений из брокера
 func New(cfg *Config, auservice IAuthService, msgservice IMsgService, jwt IJWTManager, broker IBroker) (*Router, error) {
 	app := fiber.New()
 	router := Router{App: app, Config: cfg, jwt: jwt, asvc: auservice, msgs: msgservice, broker: broker}
@@ -106,11 +106,13 @@ func (r *Router) Listen() {
 	r.App.Listen(r.Config.Host + r.Config.Port)
 }
 
+// Пингуем сервер
 func Ping(c *fiber.Ctx) error {
 	log.Println("Ping")
 	return c.JSON("Ping")
 }
 
+// Логиним пользователя
 func (r *Router) Login() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var user models.User
@@ -135,6 +137,7 @@ func (r *Router) Login() fiber.Handler {
 	}
 }
 
+// Регистрация пользователя
 func (r *Router) Register() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var user models.User
@@ -154,6 +157,7 @@ func (r *Router) Register() fiber.Handler {
 	}
 }
 
+// Создание новой пары токенов
 func (r *Router) UpdateTokens() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authData := models.AuthData{AccessToken: c.GetReqHeaders()["X-Access-Token"][0], RefreshToken: c.GetReqHeaders()["X-Refresh-Token"][0]}
@@ -170,6 +174,7 @@ func (r *Router) UpdateTokens() fiber.Handler {
 	}
 }
 
+// Получение истории переписки с пользователем
 func (r *Router) GetChat() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		requesterId, err := r.jwt.GetIDFromToken(c.GetReqHeaders()["X-Access-Token"][0])
@@ -190,6 +195,7 @@ func (r *Router) GetChat() func(c *fiber.Ctx) error {
 	}
 }
 
+// Хэндл эрроров для мидлвары
 func (r *Router) ErrorHandler() func(c *fiber.Ctx, err error) error {
 	return func(c *fiber.Ctx, err error) error {
 		log.Println("Bad access token: ", c.GetReqHeaders()["X-Access-Token"])
@@ -199,7 +205,7 @@ func (r *Router) ErrorHandler() func(c *fiber.Ctx, err error) error {
 	}
 }
 
-// Создаёт websocket соединение с клиентом, передает его id и соединение в канал регистрации и ожидает сообщение от него(см runHub()).
+// Создание websocket соединения с клиентом, передает его id и соединение в канал регистрации и ожидает сообщений от пользователя(см runHub()).
 // При получении сообщение передается в брокер(см kafka.SendMessage())
 func (r *Router) RegisterClient() fiber.Handler {
 	return websocket.New(func(c *websocket.Conn) {
@@ -245,9 +251,9 @@ func (r *Router) RegisterClient() fiber.Handler {
 	})
 }
 
-// Создаёт хаб с клиентами, которые получает от вебсокета. При получении сообщения от брокера возвращает его пользователю с
+// Создаёт хаб с клиентами, которые получает при соединении с вебсокетом. При получении сообщения от брокера возвращает его пользователю с
 // id, указанным в сообщении.
-// Также, удаляет клиента из мапы клиентов при его отключении
+// Также удаляет клиента из мапы клиентов при его отключении
 func runHub() {
 	log.Println("Opened clients hub")
 	for {

@@ -50,6 +50,7 @@ var (
 	broadcast = make(chan models.Message)
 )
 
+// Создание сервера сервиса сообщений
 func New(cfg *Config, db IDBManager, brkr IBroker) (*Service, error) {
 	log.Println(cfg.Port)
 	lis, err := net.Listen("tcp", cfg.Port)
@@ -64,49 +65,7 @@ func New(cfg *Config, db IDBManager, brkr IBroker) (*Service, error) {
 	return &svc, nil
 }
 
-func (s *Service) SendMessage(_ context.Context, in *pb.Message) (*pb.Status, error) {
-	log.Println("Got message:", in)
-	beautifiedmsg := models.BeautifiedMessage{Sender: int(in.Sender)}
-	sender, err := s.db.GetUserByID(int(in.Sender))
-	if err != nil {
-		return nil, err
-	}
-	reciever, err := s.db.GetUserByLogin(in.Reciever)
-	if err != nil {
-		return nil, err
-	}
-	beautifiedmsg.Reciever = reciever.ID
-	beautifiedmsg.Text = fmt.Sprintf("%v\n%v:\n%v", in.SendTime.AsTime().Format("02.01 15:04"), sender.Login, in.Text)
-	log.Println("Sending message:", beautifiedmsg)
-	err = s.db.AddMessage(beautifiedmsg, in.SendTime.AsTime())
-	if err != nil {
-		log.Println("Failed to save message:", err.Error())
-	}
-	err = s.broker.SendMessage(beautifiedmsg, "shared_message")
-	if err != nil {
-		log.Println("Failed to send message via broker:", err.Error())
-	}
-	return nil, nil
-}
-
-func (s *Service) EnterChat() error {
-	log.Println("Opening chat")
-	go s.broker.OpenMessageTube(&broadcast, "sent_message")
-	go s.ReadMessages()
-	return nil
-}
-
-func (s *Service) ReadMessages() {
-	for msg := range broadcast {
-		log.Println("Got message:", msg)
-		_, err := s.SendMessage(context.Background(), &pb.Message{Sender: int32(msg.Sender), Reciever: msg.Reciever,
-			Text: msg.Text, SendTime: timestamppb.New(msg.SendTime)})
-		if err != nil {
-			log.Println("Failed to send message: " + err.Error())
-		}
-	}
-}
-
+// Получение и возврат из БД истории переписки пользователей
 func (s *server) GetMessages(_ context.Context, in *pb.Message) (*pb.Chat, error) {
 	reciever, err := s.db.GetUserByLogin(in.Reciever)
 	if err != nil {
@@ -122,4 +81,50 @@ func (s *server) GetMessages(_ context.Context, in *pb.Message) (*pb.Chat, error
 	}
 	log.Println("Successfully got messages between user, returning them")
 	return &pb.Chat{JsonedChat: jsonedMsgs}, nil
+}
+
+// Отправка измененного сообщения в брокер и сохранение сообщения в БД
+func (s *Service) SendMessage(_ context.Context, in *pb.Message) error {
+	log.Println("Got message:", in)
+	beautifiedmsg := models.BeautifiedMessage{Sender: int(in.Sender)}
+	sender, err := s.db.GetUserByID(int(in.Sender))
+	if err != nil {
+		return err
+	}
+	reciever, err := s.db.GetUserByLogin(in.Reciever)
+	if err != nil {
+		return err
+	}
+	beautifiedmsg.Reciever = reciever.ID
+	beautifiedmsg.Text = fmt.Sprintf("%v\n%v:\n%v", in.SendTime.AsTime().Format("02.01 15:04"), sender.Login, in.Text)
+	log.Println("Sending message:", beautifiedmsg)
+	err = s.db.AddMessage(beautifiedmsg, in.SendTime.AsTime())
+	if err != nil {
+		log.Println("Failed to save message:", err.Error())
+	}
+	err = s.broker.SendMessage(beautifiedmsg, "shared_message")
+	if err != nil {
+		log.Println("Failed to send message via broker:", err.Error())
+	}
+	return nil
+}
+
+// Запуск чтения сообщений из брокера
+func (s *Service) EnterChat() error {
+	log.Println("Opening chat")
+	go s.broker.OpenMessageTube(&broadcast, "sent_message")
+	go s.ReadMessages()
+	return nil
+}
+
+// Чтение сообщений из брокера
+func (s *Service) ReadMessages() {
+	for msg := range broadcast {
+		log.Println("Got message:", msg)
+		err := s.SendMessage(context.Background(), &pb.Message{Sender: int32(msg.Sender), Reciever: msg.Reciever,
+			Text: msg.Text, SendTime: timestamppb.New(msg.SendTime)})
+		if err != nil {
+			log.Println("Failed to send message: " + err.Error())
+		}
+	}
 }

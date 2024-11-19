@@ -11,7 +11,7 @@ import (
 
 func main() {
 	client := &http.Client{}
-	body, _ := json.Marshal(models.User{Login: "logiiiiin", Password: "password"})
+	body, _ := json.Marshal(models.User{Login: "login", Password: "password"}) // user data(feel free to change)
 	r := bytes.NewReader(body)
 	request, err := http.NewRequest("POST", "http://localhost:8082/login", r)
 	if err != nil {
@@ -21,7 +21,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	accessToken := resp.Header["X-Access-Token"]
+	accessToken := resp.Header["X-Access-Token"] //tokens you get from responses(save it for later)
 	refreshToken := resp.Header["X-Refresh-Token"]
 	fmt.Println(accessToken)
 	fmt.Println(refreshToken)

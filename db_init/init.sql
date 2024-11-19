@@ -35,7 +35,3 @@ create table if not exists public.messages(
     send_time timestamp not null,
     message_text text
 );
-
-alter table users owner to user;
-alter table chats owner to user;
-alter table messages owner to user;

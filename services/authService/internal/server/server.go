@@ -50,6 +50,7 @@ type Service struct {
 	db         IDBManager
 }
 
+// Создание сервера сервиса аутентификации
 func New(cfg *Config, jwt IJWTManager, db IDBManager) (*Service, error) {
 	log.Println(cfg.Port)
 	lis, err := net.Listen("tcp", cfg.Port)
@@ -62,6 +63,7 @@ func New(cfg *Config, jwt IJWTManager, db IDBManager) (*Service, error) {
 	return &Service{AuthServer: s, Listener: &lis, cfg: cfg, jwt: jwt, db: db}, nil
 }
 
+// Регистрация пользователя(в т.ч. валидация ника и пароля, проверка на наличие пользователя в БД, добавление его в БД и возврат токенов)
 func (s *server) Register(_ context.Context, in *pb.User) (*pb.AuthData, error) {
 	log.Println("User to register: " + in.Login)
 	if in.Login == "" || in.Password == "" {
@@ -94,6 +96,7 @@ func (s *server) Register(_ context.Context, in *pb.User) (*pb.AuthData, error) 
 	return &pb.AuthData{AccessToken: access, RefreshToken: refresh}, nil
 }
 
+// Проверка данных аутентификации и создание и возвращение токенов в случае успеха
 func (s *server) Login(_ context.Context, in *pb.User) (*pb.AuthData, error) {
 	log.Println("User to login: " + in.Login)
 	if in.Login == "" || in.Password == "" {
@@ -126,6 +129,7 @@ func (s *server) Login(_ context.Context, in *pb.User) (*pb.AuthData, error) {
 	return &pb.AuthData{AccessToken: access, RefreshToken: refresh}, nil
 }
 
+// Создание новых токенов(нужно для обновления access токена при его истекшем сроке годности)
 func (s *server) UpdateTokens(_ context.Context, in *pb.AuthData) (*pb.AuthData, error) {
 	user_id, err := s.jwt.GetIDFromToken(in.AccessToken)
 	if err != nil {
@@ -147,8 +151,9 @@ func (s *server) UpdateTokens(_ context.Context, in *pb.AuthData) (*pb.AuthData,
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	return &pb.AuthData{AccessToken: access, RefreshToken: refresh}, nil
-} //TODO: добавить RefreshToken к User в постгресе + проверять на входе
+}
 
+// Получение приватного ключа(см jwt.NewWithKey())
 func (s *server) GetPrivateKey(_ context.Context, in *pb.KeyRequest) (*pb.PrivateKey, error) {
 	return &pb.PrivateKey{Key: x509.MarshalPKCS1PrivateKey(s.jwt.GetPrivateKey())}, nil
 }

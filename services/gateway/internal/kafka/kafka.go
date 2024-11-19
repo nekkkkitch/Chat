@@ -25,6 +25,7 @@ type Config struct {
 
 var partition = 0
 
+// Соединение с брокером
 func New(cfg *Config) (*KafkaConnection, error) {
 	kafkaConnection := KafkaConnection{ProducerTopics: map[string]*kafka.Conn{}, ConsumerTopics: map[string]*kafka.Conn{}}
 	producerTopics := strings.Split(cfg.ProducerTopics, " ")
@@ -47,6 +48,7 @@ func New(cfg *Config) (*KafkaConnection, error) {
 	return &kafkaConnection, nil
 }
 
+// Отправление сообщения в брокер по топику
 func (kfk *KafkaConnection) SendMessage(msg models.Message, topic string) error {
 	log.Println("Writing message:", msg)
 	conn := kfk.ProducerTopics[topic]
@@ -63,6 +65,7 @@ func (kfk *KafkaConnection) SendMessage(msg models.Message, topic string) error 
 	return nil
 }
 
+// Получение сообщений из брокера по топику
 func (kfk *KafkaConnection) OpenMessageTube(ch *chan models.BeautifiedMessage, topic string) error {
 	r := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:   []string{kfk.ConsumerTopics[topic].RemoteAddr().String()},

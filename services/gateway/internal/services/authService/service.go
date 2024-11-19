@@ -24,6 +24,7 @@ type Client struct {
 	conn   *grpc.ClientConn
 }
 
+// Создание клиента для authService
 func New(cfg *Config) (*Client, error) {
 	flag.Parse()
 	conn, err := grpc.NewClient(cfg.Host+cfg.Port, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -35,6 +36,7 @@ func New(cfg *Config) (*Client, error) {
 	return &Client{client: c, conn: conn}, nil
 }
 
+// Вызов функции регистрации
 func (c *Client) Register(user models.User) (*models.AuthData, error) {
 	authDataGed, err := c.client.Register(context.Background(), &authService.User{Login: user.Login, Password: user.Password})
 	if err != nil {
@@ -44,6 +46,7 @@ func (c *Client) Register(user models.User) (*models.AuthData, error) {
 	return &models.AuthData{AccessToken: authDataGed.AccessToken, RefreshToken: authDataGed.RefreshToken}, nil
 }
 
+// Вызов функции аутентификации пользователя
 func (c *Client) Login(user models.User) (*models.AuthData, error) {
 	authDataGed, err := c.client.Login(context.Background(), &authService.User{Login: user.Login, Password: user.Password})
 	if err != nil {
@@ -52,6 +55,7 @@ func (c *Client) Login(user models.User) (*models.AuthData, error) {
 	return &models.AuthData{AccessToken: authDataGed.AccessToken, RefreshToken: authDataGed.RefreshToken}, nil
 }
 
+// Вызов функции апдейта токенов
 func (c *Client) UpdateTokens(tokens models.AuthData) (*models.AuthData, error) {
 	authDataGed, err := c.client.UpdateTokens(context.Background(), &authService.AuthData{AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken})
 	if err != nil {
@@ -60,6 +64,7 @@ func (c *Client) UpdateTokens(tokens models.AuthData) (*models.AuthData, error) 
 	return &models.AuthData{AccessToken: authDataGed.AccessToken, RefreshToken: authDataGed.RefreshToken}, nil
 }
 
+// Получени приватного ключа для jwt(см jwt.NewWithKey())
 func (c *Client) GetPrivateKey() (*rsa.PrivateKey, error) {
 	data, err := c.client.GetPrivateKey(context.Background(), &authService.KeyRequest{})
 	if err != nil {

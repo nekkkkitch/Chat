@@ -14,9 +14,9 @@ type message struct {
 	Text     string `json:"text"`
 }
 
-// input token you got from responses and user login with whom you want to get chat
+// input token you got from responses and user login who you want to send message to
 var (
-	accessToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0IiwiZXhwIjoxNzM1NjI0MTUwfQ.aKBjfgNJ5LG9O4cEh0EoLstCD8gDj02lff4KjdLUrUc4_R793pOkdsUyADgxNQ3byFUDekChh7wr-2UXcxOXGwmsyEO8mRz_cGA56-AMWFRXPYzmY7ouW5kL77yHDY5g0yKzFc4_vohFETJz88aZnWFwsV8JuFHNrbaVPRX1hc3uM6DiGshQqpZquct6xB3I8nOIpMwwR_bQFmA_jDeBRMID9_e2euCRKKGWkNnzBqf6BurdDpRVgs0eKQsmMqFjJKp11y1mEQTNlKmmTU6NklSBrkUwRccU2twGT43xHIlhkg4j-sCWciBx4loANVO41qvBZnKKaFclPyJzPCOL-A"
+	accessToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzM1NjMzMzk2fQ.b80929QbkVIyjbwmXOky7Mn-eTB33FftIq7nV53QH4et8KT_HG5BVbjzbJ8xiTOpHRZV2uFPf4hoZkl9eCR6nBF5rYOuNr2Fe83plCdjiA0Jd0g2W5g6Au3_E5YMnxUtOu4JUp5-5GmfSjVttWF-x_T-cknw7bjUhk_iQGOmKhlbDhrgYk3tQHfd7t5ncEPcScAkhjrhVatF6D_uO1zstU0GsaF2sp4HdedPiKMx6zXuVqFwMMkMmYU_rZUvE1lNWYDH6C9bTdE0fWTfcD9ag8lEClpiyRW8vZJrTE6A8ns2sGcRhJTfngQg8iDOGuu3UQBcQhPfTReYdtL854mWpw"
 	resp        = make(chan string)
 )
 
@@ -25,18 +25,18 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	message := message{Reciever: "logsain", Text: "test"} // feel free to change something here
+	message := message{Reciever: "login", Text: "test"} // feel free to change something here
 	msg, _ := json.Marshal(message)
-	c.Write(context.Background(), websocket.MessageBinary, msg)
+	c.Write(context.Background(), websocket.MessageBinary, msg) //send message to user(it doesnt matter if he is online or not)
 	//waiting for messages
 	go waitForMessage(c)
 	for {
 		msg := <-resp
-		log.Println(msg)
+		log.Println("\n" + msg)
 	}
 }
 
-func waitForMessage(c *websocket.Conn) {
+func waitForMessage(c *websocket.Conn) { // message reader(you probably want to make another user for this to work or just send messages to yourself)
 	for {
 		_, msgBytes, err := c.Read(context.Background())
 		resp <- string(msgBytes)

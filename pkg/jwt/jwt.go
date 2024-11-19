@@ -42,6 +42,7 @@ var (
 	}
 )
 
+// Создает jwt объект с ключами и сроком действия токенов
 func New(cfg *Config) (JWT, error) {
 	jwt := JWT{}
 	var err error
@@ -64,12 +65,16 @@ func New(cfg *Config) (JWT, error) {
 	}
 	return jwt, nil
 }
+
+// Создаёт jwt объект, если ключ уже существует(это нужно, потому что при отсутствии ключа в cfg файле сервисы пытаются создать его сами, и создают разные ключи)
+// Это не очень хорошо, так как gateway зависит от authService, и это стоило бы как-то исправить
 func NewWithKey(cfg *Config, key *rsa.PrivateKey) (JWT, error) {
 	jwt := JWT{PrivateKey: key, PublicKey: &key.PublicKey,
 		AccessTokenExpiration: time.Second * time.Duration(cfg.AccessTokenExpiration), RefreshTokenExpiration: time.Second * time.Duration(cfg.RefreshTokenExpiration)}
 	return jwt, nil
 }
 
+// Создаёт токены для пользователя по его id. В access лежит id, в refresh ничего
 func (j *JWT) CreateTokens(user_id int) (string, string, error) {
 	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.AccessTokenExpiration)),
@@ -87,6 +92,7 @@ func (j *JWT) CreateTokens(user_id int) (string, string, error) {
 	return accessToken, refreshToken, nil
 }
 
+// Проверяет валидность токенов
 func (j *JWT) ValidateToken(c *fiber.Ctx, token string) (bool, error) {
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
@@ -106,7 +112,8 @@ func (j *JWT) ValidateToken(c *fiber.Ctx, token string) (bool, error) {
 	return true, nil
 }
 
-func (j *JWT) AuthFilter(c *fiber.Ctx) bool { //переделать чтобы была одная функция фильтра вместо двух
+// Фильтрует руты, на которых access или refresh токены не понадобятся
+func (j *JWT) AuthFilter(c *fiber.Ctx) bool { //TODO: переделать чтобы была одна функция фильтра вместо двух
 	originalURL := strings.ToLower(c.OriginalURL())
 	for _, pattern := range needToProvideAuthTokenURLs {
 		if pattern.MatchString(originalURL) {
@@ -116,6 +123,7 @@ func (j *JWT) AuthFilter(c *fiber.Ctx) bool { //переделать чтобы 
 	return true
 }
 
+// -||-
 func (j *JWT) RefreshFilter(c *fiber.Ctx) bool {
 	originalURL := strings.ToLower(c.OriginalURL())
 	for _, pattern := range needToProvideRefreshTokenURLs {
@@ -126,6 +134,7 @@ func (j *JWT) RefreshFilter(c *fiber.Ctx) bool {
 	return true
 }
 
+// Получает id пользователя из access токена
 func (j *JWT) GetIDFromToken(token string) (int, error) {
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
@@ -142,14 +151,17 @@ func (j *JWT) GetIDFromToken(token string) (int, error) {
 	return id, nil
 }
 
+// Получение ключей из jwt
 func (j *JWT) GetPrivateKey() *rsa.PrivateKey {
 	return j.PrivateKey
 }
 
+// -||-
 func (j *JWT) GetPublicKey() *rsa.PublicKey {
 	return j.PublicKey
 }
 
+// Получение id из клеймов токена
 func getIdFromClaims(claims jwt.MapClaims) (int, error) {
 	idString := claims["sub"].(string)
 	user_id, err := strconv.Atoi(idString)
@@ -160,6 +172,7 @@ func getIdFromClaims(claims jwt.MapClaims) (int, error) {
 	return user_id, nil
 }
 
+// Перевод застрингованного слайса байтов в слайс байтов "[1 2 3]" -> []byte{1, 2, 3}
 func convertStringToBytesSlice(line string) []byte {
 	line = strings.Trim(line, "[]")
 	parts := strings.Split(line, " ")

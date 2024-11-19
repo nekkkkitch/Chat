@@ -6,10 +6,10 @@ import (
 	"net/http"
 )
 
-// input tokens you got from responses
+// input tokens you got from responses(yes you need to do it manually)
 var (
-	accessToken  = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwiZXhwIjoxNzM1NjI3MzQyfQ.JU2rx0WANcH3LSs964n-oI6S21HksnjOg5MFucfcXfmW2soyNXvcgC1aGDU0vNKKNd1WQdb1z5Ji2tIMrW0IMHCwvTvtlySoX4KOCHJdfj4222UuFLkfLKfMCTr6C4fG36blyMTvYmGUaOtfoPNoKlVDuomudvGcpk1ak_ujzQVyha5RN1-CilgZNDa5Mw7rKplV7HS3I8B4mUyEbe8NsWXvbgFjh2Z9CmZk-aRuD9-fdh6PGLub9AOIKcQGK6sP1lovA4n7B35ikazvlY7hdAqGCG1SB16ErWCiwjjfU9eHjMeDAGJ7iuLfI2G4MbVY9dtNHWiM81paUqyPswXP0Q"
-	refreshToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzU2MjczNDJ9.D7GNHg03doI4cG3tUmCq8C17uRHfDGdUD1tuXQhToE0099f_0OKb0FpnTdouNHEtShBv2HkpuPviSzHt0TXX_SqjUdGva_kZw73pMKiAFaK0SU9GelqbbI6KZBkEJ8DVLStmFNlB4Dz6VbdmfeqqCJW526HPYZ7P2HWoCHwPwu614iAQbJiDlm8PutpQ6XxXKeFSzVesbkY_-Q3AgpfcBejqmyMrzYiK1c-pxruEve88wdKxoWPD8vgakBt1Kxzw6cDQiMH0hszv1kBkV_uPm8fAnJw6cWU1YovaS_tkCpwmBB6SPfm2o5xBi1Nwmh9iJpsUm_HTJvIZhD8ni0tPPQ"
+	accessToken  = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzM1NjMzMTI4fQ.jmpLcOEl5splTNqoAr_RIqbpPOQRs1nntwWlyI6GFUQIDADG143smC76ftYvmd5f1-oGnnuRzG525mjs5YYp1VCIIiHlUaFXP4hSTEYtF5a76r-IRwCj3dcFYLLl7b3z76aWEZc9clz24fiUom80ItnRzqqG_AyDHh_N8mFdTLRnFg9V4t99d7Yu42wP3R_JOgCfe4_cGAOR6lDQ0aVCu2UHH6tL6qhUWRJBwTOmsml5-LO0Osv2ITgW7hdvDPQMZc0G8dMh3jbKuSyKCFGQuOqUxzdPkxwHKMeKlwb9yvcIjLTi0La-jksjL6TTTWzRya13NfTQRDfIBCRjc_0E_g"
+	refreshToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzU2MzMxMjh9.bYzUO-bWidwvCsgwfOZML5MtusczOsRTHa76WqIQs4D_QCVceGEjaPDfWiWPH-ZZ40r3U9sGwjMfBylZX8wEDNBNpxzTpOJ2_YVSl8kKDaZ48DgAawwubzoV8qwryNSKuV9ALPPdCrLn_uW_TpE5z4vvWFSgU2QRYFtoIdGDwYQfQM1PfGYvtJTgIVIGbJXWLJB9M8y9vGnMalfa02oaLZY4Y3wlP25YVXUIPTiQm3crQepFiLBH1MLD3BrJhUOYFXf0ez7blr9He6AT8wv-KRE7P7wNvBzEgnAyAC0vnuDDAFS5A5xVSbkZ_2y4Dd-Eq8F-Fklok4BCGwYUG1qsVA"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	respAccessToken := resp.Header["X-Access-Token"]
+	respAccessToken := resp.Header["X-Access-Token"] // tokens you get from responses(save it for later)🤓
 	respRefreshToken := resp.Header["X-Refresh-Token"]
 	fmt.Println(respAccessToken)
 	fmt.Println(respRefreshToken)
