@@ -15,6 +15,7 @@ require (
 require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
+	github.com/coder/websocket v1.8.12 // indirect
 	github.com/dchest/uniuri v1.2.0 // indirect
 	github.com/fasthttp/websocket v1.5.8 // indirect
 	github.com/gofiber/contrib/websocket v1.3.2 // indirect

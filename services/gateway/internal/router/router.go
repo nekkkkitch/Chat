@@ -129,8 +129,8 @@ func (r *Router) Login() fiber.Handler {
 			return err
 		}
 		log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
-		c.Context().Response.Header.Set("access_token", authData.AccessToken)
-		c.Context().Response.Header.Set("refresh_token", authData.RefreshToken)
+		c.Context().Response.Header.Set("X-Access-Token", authData.AccessToken)
+		c.Context().Response.Header.Set("X-Refresh-Token", authData.RefreshToken)
 		return nil
 	}
 }
@@ -148,8 +148,8 @@ func (r *Router) Register() fiber.Handler {
 			return err
 		}
 		log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authData.AccessToken[:20], authData.RefreshToken[:20])
-		c.Context().Response.Header.Set("access_token", authData.AccessToken)
-		c.Context().Response.Header.Set("refresh_token", authData.RefreshToken)
+		c.Context().Response.Header.Set("X-Access-Token", authData.AccessToken)
+		c.Context().Response.Header.Set("X-Refresh-Token", authData.RefreshToken)
 		return nil
 	}
 }
@@ -164,7 +164,7 @@ func (r *Router) UpdateTokens() fiber.Handler {
 		}
 
 		log.Printf("Tokens to return:\nAccess token: %s\nRefresh token: %s", authDataResp.AccessToken[:20], authDataResp.RefreshToken[:20])
-		c.Context().Response.Header.Set("X-Acess-Token", authDataResp.AccessToken)
+		c.Context().Response.Header.Set("X-Access-Token", authDataResp.AccessToken)
 		c.Context().Response.Header.Set("X-Refresh-Token", authDataResp.RefreshToken)
 		return nil
 	}

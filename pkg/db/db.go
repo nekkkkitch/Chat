@@ -75,7 +75,7 @@ func (d *DB) GetUserByLogin(login string) (models.User, error) {
 	if err != nil {
 		return models.User{}, err
 	}
-	log.Printf("Returning user %v %v %v\n", user.ID, user.Login, user.Password[:10])
+	log.Printf("Returning user got from DB %v %v %v\n", user.ID, user.Login, user.Password[:10])
 	return user, nil
 }
 
@@ -115,6 +115,9 @@ func (d *DB) GetMessages(firstId, secondId int) ([]models.BeautifiedMessage, err
 	}
 	rows, err := d.db.Query(context.Background(), `select message_text from public.messages where chat_id = $1`, chatId)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return []models.BeautifiedMessage{}, nil
+		}
 		return nil, err
 	}
 	msgs := []models.BeautifiedMessage{}

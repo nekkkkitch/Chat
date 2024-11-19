@@ -120,5 +120,6 @@ func (s *server) GetMessages(_ context.Context, in *pb.Message) (*pb.Chat, error
 	if err != nil {
 		return nil, err
 	}
+	log.Println("Successfully got messages between user, returning them")
 	return &pb.Chat{JsonedChat: jsonedMsgs}, nil
 }

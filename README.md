@@ -10,7 +10,7 @@
    make start
    ```
 # Available requests
-I suggest you to use desktop version of [postman](https://web.postman.co)
+I suggest you to use desktop version of [postman](https://web.postman.co) OR run files from /test folder
 
 IP is localhost:8082
 ### HTTP Requests
