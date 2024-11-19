@@ -23,10 +23,13 @@ IP is localhost:8082
 - /refresh
 
 `Returns new tokens. Requiers headers X-Access-Token and X-Refresh-Token with corresponding values. Response contains headers X-Access-Token and X-Refresh-Token`
+- /getchat?user=
+
+`Returns chat with given user. Response contains text with ALL messages between requester and user`
 - /ping
 
 `Pings server. Response contain text`
 ### Websocket
-- /chat
+- /chat?access_token=
 
 `Establishes websocket connection. Requiers url parameter access_token. Messages should contain json body with reciever and text parameters`
