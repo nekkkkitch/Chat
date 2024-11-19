@@ -1,7 +1,7 @@
 # Installation and launching
 1. Clone project
 2. cd in terminal to /chat
-3. run in terminal
+3. run in terminal(Docker engine should be running and Makefile.exe should be in your Path)
    ```
    make buildbuilder
    ```
