@@ -5,7 +5,7 @@
    ```
    make buildbuilder
    ```
-4. run in terminal
+4. run in terminal(If something is crashed instantly, wait for the broker and db to launch, and launch everything else)
     ```
    make start
    ```
