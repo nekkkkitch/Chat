@@ -14,19 +14,19 @@ I suggest you to use desktop version of [postman](https://web.postman.co) OR run
 
 IP is localhost:8082
 ### HTTP Requests
-- /register
+- POST /register
 
 `Registers new user. Requiers json body with login and password parameters. Response contains headers X-Access-Token and X-Refresh-Token`
-- /login
+- POST /login
 
 `Login user. Requiers json body with login and password parameters. Response contains headers X-Access-Token and X-Refresh-Token`
-- /refresh
+- GET /refresh
 
 `Returns new tokens. Requiers headers X-Access-Token and X-Refresh-Token with corresponding values. Response contains headers X-Access-Token and X-Refresh-Token`
-- /getchat?user=
+- GET /getchat?user=
 
 `Returns chat with given user. Response contains text with ALL messages between requester and user`
-- /ping
+- GET /ping
 
 `Pings server. Response contain text`
 ### Websocket
